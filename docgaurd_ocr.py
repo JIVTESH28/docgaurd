@@ -1,3 +1,4 @@
+import os
 import json
 import torch
 import docgaurd
@@ -46,16 +47,31 @@ class OcrDocumentAnalyzer:
 
     def analyze_file(self, file_path: str, force_ocr: bool = False) -> str:
         """
-        Analyzes a file on disk. If the file is scanned/image-only (requires OCR) 
-        or if `force_ocr` is enabled, it automatically executes hardware-accelerated 
-        OCR and merges the results back into a single unified telemetry schema.
+        Analyzes a file on disk. If the file is scanned/image-only (requires OCR),
+        is a raw image format, or if `force_ocr` is enabled, it automatically executes
+        hardware-accelerated OCR and merges the results back into a single unified telemetry schema.
         """
-        # 1. Execute high-speed native DocGaurd validation
-        raw_report = self.analyzer.analyze_file(file_path)
-        report = json.loads(raw_report)
+        ext = file_path.split('.')[-1].lower() if '.' in file_path else ""
+        is_image = ext in {"png", "jpg", "jpeg", "tiff", "bmp", "webp", "gif"}
         
-        # 2. Check if the document requires OCR
-        needs_ocr = report.get("requires_ocr", False)
+        # 1. Execute high-speed native DocGaurd validation
+        if is_image:
+            # Construct standard base metadata schema directly for raw images
+            report = {
+                "file_name": os.path.basename(file_path),
+                "file_type": ext,
+                "sha256": "",
+                "security_risk": "low",
+                "page_count": 1,
+                "requires_ocr": True,
+                "quality_score": 1.0,
+                "duplicate": False,
+            }
+            needs_ocr = True
+        else:
+            raw_report = self.analyzer.analyze_file(file_path)
+            report = json.loads(raw_report)
+            needs_ocr = report.get("requires_ocr", False)
         
         if not needs_ocr and not force_ocr:
             # Document is already clean and readable; return the report immediately
@@ -70,12 +86,12 @@ class OcrDocumentAnalyzer:
         ocr_bytes = ocr_text.encode('utf-8')
         
         # 5. Use DocGaurd's ultra-fast raw helpers to calculate precise metrics
-        word_count = self.analyzer.count_words_bytes(ocr_bytes, file_path)
-        token_count = self.analyzer.count_tokens_bytes(ocr_bytes, file_path)
-        char_count = self.analyzer.count_chars_bytes(ocr_bytes, file_path)
+        word_count = self.analyzer.count_words_bytes(ocr_bytes, "ocr_text.txt")
+        token_count = self.analyzer.count_tokens_bytes(ocr_bytes, "ocr_text.txt")
+        char_count = self.analyzer.count_chars_bytes(ocr_bytes, "ocr_text.txt")
         
         # 6. Re-run analysis on the OCR'd text bytes to get exact classification and recommendations
-        bytes_report_str = self.analyzer.analyze_bytes(ocr_bytes, file_path)
+        bytes_report_str = self.analyzer.analyze_bytes(ocr_bytes, "ocr_text.txt")
         bytes_report = json.loads(bytes_report_str)
         
         # 7. Merge the OCR results and Rust-native telemetry into a single unified JSON schema
