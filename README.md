@@ -235,10 +235,10 @@ else:
 ```
 
 ### Example 3: Hardware-Accelerated OCR Integration (Metal/CUDA)
-Incorporate unified OCR for scanned files using the [docgaurd_ocr.py](docgaurd_ocr.py) module:
+Incorporate unified OCR for scanned files directly from the installed package:
 ```python
 import json
-from docgaurd_ocr import OcrDocumentAnalyzer
+from docgaurd import OcrDocumentAnalyzer
 
 # Initialize unified OcrDocumentAnalyzer (auto-routes to Apple Metal MPS or CUDA)
 gateway = OcrDocumentAnalyzer()
