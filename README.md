@@ -20,17 +20,13 @@ DIG sits between document ingestion and downstream AI systems, providing documen
 
 ## Installation
 
-Ensure you have Rust and Cargo installed, then build and install the module locally using `maturin`:
+Install `docgaurd` instantly in your Python virtual environment:
 
 ```bash
-# Setup virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Build and install local python bindings
-pip install maturin
-maturin develop --features extension-module
+pip install docgaurd
 ```
+
+No Rust compilers, C dependencies, or Maturin installations are required. Pre-compiled native binary wheels are automatically served for macOS, Windows, and Linux.
 
 ---
 
