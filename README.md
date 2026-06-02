@@ -188,7 +188,25 @@ DocGaurd generates a comprehensive, metadata-rich telemetry report for every ana
 | `tokenizer_name` | `"cl100k_base"` | Tokenizer profile (cl100k_base, r50k_base, p50k_base) |
 | `max_file_size` | `52,428,800` bytes (50MB) | Intercept oversized documents |
 | `embedding_rate_per_million` | `$0.02` | Custom embedding cost rate |
-| `llm_input_rate_per_million` | `$5.00` | Custom LLM input rate |
+---
+
+## How the OCR Integration Works
+
+DocGaurd implements a high-performance **hybrid OCR gateway** under the `OcrDocumentAnalyzer` class:
+
+1. **Rust-Native Gatekeeping**:
+   When a file is submitted, DocGaurd first uses its sub-millisecond Rust parsers to check the file type and structure.
+   - If the document is a clean digital file (e.g., text PDF, Word doc, or markdown), the text is extracted instantly, and the heavy OCR engine is completely bypassed.
+   - If the file is an image (`.png`, `.jpg`, `.jpeg`, etc.) or is flagged by the Rust quality scanner as a scanned/text-empty PDF (`requires_ocr: True`), the OCR engine is initialized.
+2. **Lazy Loading**:
+   To keep package imports sub-millisecond, PyTorch and EasyOCR model weights are loaded lazily on-demand *only* when the first scanned document or raw image is encountered.
+3. **Hardware Auto-Detection**:
+   The engine dynamically autodetects your host hardware to run deep learning models at maximum speed:
+   - **macOS (Apple Silicon)**: Natively offloads tensor computations to the GPU via **Metal Performance Shaders (MPS)**.
+   - **Windows/Linux with GPU**: Automatically targets your Nvidia GPU via **CUDA**.
+   - **Fallback**: Runs on optimized multi-threaded **CPU**.
+4. **Rust Telemetry Reconciliation**:
+   Once text is extracted via OCR, the raw text bytes are passed back into DocGaurd's Rust core using a virtual text buffer. The Rust engine then computes exact GPT token budgets (`tiktoken-rs`), counts words/characters, runs domain classification, and generates cost estimations—reconciling all statistics back into a single unified JSON schema.
 
 ---
 
