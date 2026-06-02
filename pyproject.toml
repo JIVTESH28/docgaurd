@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "docgaurd"
-version = "0.1.0"
+version = "0.1.1"
 description = "High-performance document intelligence gateway and safety guardrail engine."
 readme = "README.md"
 requires-python = ">=3.8"
