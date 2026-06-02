@@ -1,118 +1,116 @@
-# Document Intelligence Gateway (DIG)
+# DocGaurd (Document Intelligence Gateway)
 
-Document Intelligence Gateway (DIG) is a high-performance document analysis, validation, and guardrail platform built in Rust with Python bindings (`docgaurd` via PyO3 + Maturin).
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PyPI version](https://badge.fury.io/py/docgaurd.svg)](https://badge.fury.io/py/docgaurd)
 
-DIG sits between raw document ingestion and downstream AI/LLM pipelines, providing document validation, exact token analysis, security scanning, quality scoring, routing recommendations, and preprocessing intelligence before documents enter RAG pipelines, embedding systems, vector databases, or LLM workflows.
-
----
-
-## Where to Use DIG (Core Use Cases)
-
-- **RAG Ingestion Guardrails**: Evaluate documents before chunking or embedding to detect empty files, scanned-only PDFs, low-quality structures, or unsupported formats, preventing downstream vector database waste.
-- **AI Cost & Budget Management**: Compute exact OpenAI token counts and estimate embedding/LLM input processing costs dynamically before making expensive external API calls.
-- **System Resource Security**: Intercept Zip bombs, compression bombs, resource exhaustion attacks (oversized files or excessive pages), and malformed structures at the gateway before they consume system memory.
-- **Smart Chunking & Storage Routing**: Dynamically recommend chunking strategies (Hierarchical, Semantic, Fixed, or Agentic) and route incoming documents to downstream AI agents based on heuristic domain classifications.
-- **Global De-duplication**: Check exact duplicate files concurrently across batches using high-performance cryptographic SHA-256 fingerprinting.
+DocGaurd (Document Intelligence Gateway) is a high-performance document validation, security scanning, quality guardrail, and exact token counting engine. Built in Rust with native Python bindings via PyO3, DocGaurd sits between raw document ingestion and downstream LLM/RAG pipelines to prevent system exploitation, database bloat, and unexpected API costs.
 
 ---
 
-## Available Methods (Exposed to Python)
+### Features • Installation • Quick Start • Python API • Telemetry Schema • Supported Formats • Examples • License
 
-DIG exposes the `DocumentAnalyzer` class containing the following Python-accessible methods:
+---
 
-### Core Analysis Methods (Full Gateway Intelligence)
-- `analyze_file(self, file_path: str) -> str`
-  Parses and analyzes a single document located on the local disk. Returns a comprehensive JSON telemetry string.
-- `analyze_bytes(self, content: bytes, file_name: str) -> str`
-  Parses and analyzes an in-memory document byte buffer. Returns a comprehensive JSON telemetry string.
-- `analyze_batch(self, file_paths: List[str]) -> str`
-  Concurrently processes a list of document files in parallel across all CPU cores. Returns a JSON telemetry string containing aggregated batch statistics and individual file reports.
-- `analyze_directory(self, dir_path: str, recursive: bool = True) -> str`
-  Recursively discovers and batches all document files inside a directory in parallel. Returns a JSON telemetry string containing aggregated statistics and individual file reports.
+## Features
 
-### Ultra-Fast Single-Metric Helpers (Sub-Millisecond Bypasses)
-- `count_words(self, file_path: str) -> int`
-- `count_tokens(self, file_path: str) -> int`
-- `count_chars(self, file_path: str) -> int`
-- `count_words_bytes(self, content: bytes, file_name: str) -> int`
-- `count_tokens_bytes(self, content: bytes, file_name: str) -> int`
-- `count_chars_bytes(self, content: bytes, file_name: str) -> int`
+*   **✨ Real GPT Tokenization** - Integrates high-performance `tiktoken-rs` in Rust to calculate exact GPT token budgets (not approximations) for models like GPT-4, GPT-3.5, Claude, or LLaMA.
+*   **⚡ Multi-Format Support** - Seamlessly extracts text and parses metadata from PDF, TXT, MD, DOCX, PPTX, XLSX, CSV, JSON, XML, and HTML files.
+*   **🛡️ Ingestion Security** - Built-in security scanners inspect compressed documents and file headers to intercept Zip bombs, compression bombs, and oversized resource limits before they reach system memory.
+*   **🔍 Text Quality & OCR Necessity Detection** - Evaluates page text density, whitespace-to-character ratio, and empty page signals to flag scanned/image-only documents (`requires_ocr`) before vector database embedding.
+*   **🚀 Native Parallel Batch Processing** - Utilizes Rust's concurrent work-stealing thread pool (`Rayon`) to process thousands of files or directory trees in parallel with zero GIL serialization.
+*   **💾 Global De-duplication** - Computes high-performance SHA-256 content hashes in parallel to identify and skip exact duplicate files inside a batch queue automatically.
+*   **💰 Dynamic Cost Estimation** - Estimates LLM input cost and vector database embedding cost dynamically before making external API requests.
+*   **🎯 Intelligent Agent Routing** - Classifies text based on heuristic token frequencies and assigns a target downstream AI Agent (e.g., `LegalAgent`, `ProcurementAgent`).
 
 ---
 
 ## Installation
 
-Install `docgaurd` instantly in your Python virtual environment using `pip`:
-
+### From PyPI (Recommended)
+Install pre-compiled native binary wheels instantly on Windows, Linux, or macOS:
 ```bash
 pip install docgaurd
 ```
+*(No Rust compilers, C-libraries, or compilation tools are required on the host system).*
 
-*Note: No Rust compilers, C libraries, or Maturin installations are required. Pre-compiled native binary wheels are automatically provided for macOS, Windows, and Linux.*
+### From Source
+```bash
+git clone https://github.com/JIVTESH28/docgaurd.git
+cd docgaurd
+pip install .
+```
 
 ---
 
-## Python Integration Examples
+## Quick Start
 
-Here is a comprehensive script demonstrating the use of all available methods:
-
+### Initialize the Analyzer
 ```python
 import json
 import docgaurd
 
-# 1. Initialize the Analyzer with customizable thresholds
+# Initialize the gateway analyzer with custom thresholds
 analyzer = docgaurd.DocumentAnalyzer({
-    "target_model": "gpt-4",                   # Model for context limits
-    "tokenizer_name": "cl100k_base",           # Tokenizer profile to count with
-    "embedding_rate_per_million": 0.02,        # Custom embedding price ($)
-    "llm_input_rate_per_million": 5.00,        # Custom LLM input price ($)
-    "max_file_size": 52428800                  # Max file size limit in bytes (50MB)
+    "target_model": "gpt-4",                   # Target context window check
+    "tokenizer_name": "cl100k_base",           # Tiktoken profile
+    "embedding_rate_per_million": 0.02,        # Cost per 1M tokens ($)
+    "llm_input_rate_per_million": 5.00,        # Cost per 1M tokens ($)
+    "max_file_size": 52428800                  # Max file size (50MB)
 })
+```
 
-# ==============================================================================
-# USE CASE A: Parsing a local file on disk
-# ==============================================================================
-try:
-    report_json = analyzer.analyze_file("contract_agreement.pdf")
-    report = json.loads(report_json)
-    print(f"File Quality: {report['quality_score']} | Class: {report['document_class']}")
-except FileNotFoundError:
-    print("file not found on disk")
+### Python API Usage
 
-# ==============================================================================
-# USE CASE B: Parsing an in-memory byte stream (e.g. from FastAPI/Django Uploads)
-# ==============================================================================
-uploaded_bytes = b"This is a sample document content containing generic text data for validation."
-bytes_report = json.loads(analyzer.analyze_bytes(uploaded_bytes, "uploaded_file.txt"))
-print(f"Tokens: {bytes_report['token_count']} | RAG Ready: {bytes_report['rag_ready']}")
+#### Single File Ingestion (Local Disk)
+```python
+report_str = analyzer.analyze_file("contract.pdf")
+report = json.loads(report_str)
+print(f"Tokens: {report['token_count']} | RAG Ready: {report['rag_ready']}")
+```
 
-# ==============================================================================
-# USE CASE C: Batch processing multiple files in parallel (with failure isolation)
-# ==============================================================================
-file_queue = ["technical_specs.docx", "annual_report.pptx", "financial_sheet.xlsx"]
-batch_report = json.loads(analyzer.analyze_batch(file_queue))
-print(f"Processed: {batch_report['summary']['successful_files']} | Duplicates: {batch_report['summary']['duplicate_files']}")
+#### In-Memory Bytes Ingestion (API Uploads)
+```python
+uploaded_bytes = b"Sample document text buffer."
+report_str = analyzer.analyze_bytes(uploaded_bytes, "invoice.txt")
+report = json.loads(report_str)
+print(f"Domain Class: {report['document_class']} | RAG Ready: {report['rag_ready']}")
+```
 
-# ==============================================================================
-# USE CASE D: Scanning a complete directory recursively
-# ==============================================================================
-dir_report = json.loads(analyzer.analyze_directory("./archive", recursive=True))
+#### Natively Parallel Batch Processing
+```python
+file_list = ["agreement.docx", "data.xlsx", "spec.pdf"]
+batch_report_str = analyzer.analyze_batch(file_list)
+batch_report = json.loads(batch_report_str)
+
+print(f"Successful files: {batch_report['summary']['successful_files']}")
+print(f"Duplicates skipped: {batch_report['summary']['duplicate_files']}")
+```
+
+#### Directory Ingestion (Recursive Scan)
+```python
+dir_report_str = analyzer.analyze_directory("./archive", recursive=True)
+dir_report = json.loads(dir_report_str)
 print(f"Total directory tokens: {dir_report['summary']['total_tokens']}")
+```
 
-# ==============================================================================
-# USE CASE E: Ultra-Fast Single-Metric Bypasses (Sub-Millisecond latency)
-# ==============================================================================
-word_count = analyzer.count_words("technical_specs.docx")
-token_count = analyzer.count_tokens_bytes(uploaded_bytes, "uploaded_file.txt")
-char_count = analyzer.count_chars("annual_report.pptx")
-print(f"Single stats: words={word_count}, tokens={token_count}, chars={char_count}")
+#### Ultra-Fast Single-Metric Bypasses
+If you only need a single metric and want to bypass the rest of the gateway analysis pipeline (such as security checks, cost estimation, and domain classification), use the sub-millisecond helpers:
+```python
+# Raw metric count helpers (File-based)
+word_count = analyzer.count_words("document.docx")
+char_count = analyzer.count_chars("document.docx")
+token_count = analyzer.count_tokens("document.docx")
+
+# Raw metric count helpers (Byte-based)
+token_count = analyzer.count_tokens_bytes(uploaded_bytes, "invoice.txt")
 ```
 
 ---
 
-## Output Telemetry Schema
+## Telemetry Output Schema
 
-DIG generates a structured, metadata-rich telemetry report for every analyzed file:
+DocGaurd generates a comprehensive, metadata-rich telemetry report for every analyzed file:
 
 ```json
 {
@@ -163,6 +161,94 @@ DIG generates a structured, metadata-rich telemetry report for every analyzed fi
 | `estimated_embedding_cost`| Float | Predicted vector database indexing cost. |
 | `estimated_llm_cost` | Float | Predicted input processing cost. |
 | `processing_time_ms` | Float | Internal Gateway execution latency in milliseconds. |
+
+---
+
+## Supported Formats
+
+| Format | Extension | Extraction Method | Key Features |
+| :--- | :--- | :--- | :--- |
+| **PDF** | `.pdf` | Native lopdf Parser | Structural reading, scanned detection, page extraction |
+| **Word** | `.docx` | Native docx XML Parser | Direct paragraph and table text extraction |
+| **PowerPoint** | `.pptx` | Native pptx XML Parser | Shape text, slide processing, bullet analysis |
+| **Excel** | `.xlsx` | Calamine Engine | Spreadsheet parsing, cell extraction, rows estimation |
+| **CSV** | `.csv` | CSV Parser | Direct row, column parsing, delimiter validation |
+| **Plain Text** | `.txt`, `.md` | Unicode Parser | Streaming flat extraction, lossy fallback encoding |
+| **JSON** | `.json` | Serde JSON | Recursive nested key-value string extraction |
+| **XML** | `.xml` | Quick XML Parser | Tag-stripped text, element-wise traversal |
+| **HTML** | `.html` | Quick XML Parser | Element parsing, script/style extraction filtering |
+
+---
+
+## Configuration Limits
+
+| Setting | Default Value | Purpose |
+| :--- | :--- | :--- |
+| `target_model` | `"gpt-4"` | Target context size limit check |
+| `tokenizer_name` | `"cl100k_base"` | Tokenizer profile (cl100k_base, r50k_base, p50k_base) |
+| `max_file_size` | `52,428,800` bytes (50MB) | Intercept oversized documents |
+| `embedding_rate_per_million` | `$0.02` | Custom embedding cost rate |
+| `llm_input_rate_per_million` | `$5.00` | Custom LLM input rate |
+
+---
+
+## Examples
+
+### Example 1: RAG Ingestion Security & Quality Gatekeeper
+Ensure that only secure, high-quality, digital documents enter your vector database:
+```python
+import json
+import docgaurd
+
+analyzer = docgaurd.DocumentAnalyzer()
+report = json.loads(analyzer.analyze_file("user_upload.pdf"))
+
+# Intercept risks at the gateway
+if report["security_risk"] == "high":
+    raise ValueError(f"CRITICAL: Security exception triggered for {report['file_name']}")
+
+if report["requires_ocr"]:
+    print(f"Routing {report['file_name']} to hardware-accelerated OCR pipeline.")
+elif not report["rag_ready"]:
+    print(f"Skipping {report['file_name']} due to low text quality score: {report['quality_score']}")
+else:
+    print(f"Ingesting clean document text. Context Size: {report['token_count']} tokens.")
+```
+
+### Example 2: API Cost Budgeting & Model Window Check
+Calculate API transaction costs and verify if a document fits within a model's context window:
+```python
+import json
+import docgaurd
+
+analyzer = docgaurd.DocumentAnalyzer({
+    "target_model": "gpt-3.5-turbo",
+    "llm_input_rate_per_million": 1.50
+})
+
+report = json.loads(analyzer.analyze_file("long_transcript.txt"))
+
+if not report["fits_context"]:
+    print(f"Document exceeds target context window. Recommended chunking strategy: {report['recommended_chunking']}")
+else:
+    print(f"Document fits. Estimated processing cost: ${report['estimated_llm_cost']:.4f}")
+```
+
+### Example 3: Hardware-Accelerated OCR Integration (Metal/CUDA)
+Incorporate unified OCR for scanned files using the [docgaurd_ocr.py](docgaurd_ocr.py) module:
+```python
+import json
+from docgaurd_ocr import OcrDocumentAnalyzer
+
+# Initialize unified OcrDocumentAnalyzer (auto-routes to Apple Metal MPS or CUDA)
+gateway = OcrDocumentAnalyzer()
+
+report_json = gateway.analyze_file("scanned_receipt.jpg")
+report = json.loads(report_json)
+
+print(f"OCR Text: {report['text']}")
+print(f"OCR Tokens: {report['token_count']} | RAG Ready: {report['rag_ready']}")
+```
 
 ---
 
