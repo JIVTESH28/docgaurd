@@ -1,8 +1,8 @@
 [package]
 name = "docgaurd"
-version = "0.1.10"
+version = "0.1.11"
 edition = "2021"
-authors = ["Antigravity"]
+authors = ["Jivtesh"]
 
 [lib]
 name = "docgaurd"
