@@ -1,8 +1,7 @@
 import os
 import json
-import torch
-import docgaurd
 from typing import List, Optional
+from .docgaurd import DocumentAnalyzer
 
 class OcrDocumentAnalyzer:
     """
@@ -19,9 +18,18 @@ class OcrDocumentAnalyzer:
     
     def __init__(self, config: Optional[dict] = None, languages: List[str] = ['en']):
         # Initialize the native Rust DocumentAnalyzer with customizable configurations
-        self.analyzer = docgaurd.DocumentAnalyzer(config)
+        self.analyzer = DocumentAnalyzer(config)
         self.languages = languages
         self.ocr_reader = None
+        
+        # Dynamic lazy loading of PyTorch to keep package imports independent of torch installation
+        try:
+            import torch
+        except ImportError:
+            raise ImportError(
+                "PyTorch is required for OCR functionality. "
+                "Install it using: pip install torch torchvision easyocr"
+            )
         
         # Determine the best hardware accelerator available
         if torch.backends.mps.is_available():
@@ -111,26 +119,3 @@ class OcrDocumentAnalyzer:
         report["fits_context"] = bytes_report.get("fits_context")
         
         return json.dumps(report, indent=2)
-
-
-if __name__ == "__main__":
-    # Self-testing/demo interface
-    import tempfile
-    import os
-    
-    print("Initializing OcrDocumentAnalyzer...")
-    gateway = OcrDocumentAnalyzer()
-    print(f"Unified Gateway running on: {gateway.device.upper()}")
-    
-    # Create a dummy scanned document simulation
-    with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
-        # A file with low character count but pages is detected as requiring OCR
-        f.write(b"Scanned Doc Sim Content")
-        temp_path = f.name
-        
-    try:
-        print("\nProcessing Simulated Document...")
-        report_json = gateway.analyze_file(temp_path)
-        print(report_json)
-    finally:
-        os.unlink(temp_path)
