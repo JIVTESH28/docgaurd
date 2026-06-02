@@ -1,0 +1,15 @@
+# Rust
+target/
+Cargo.lock
+
+# Python
+venv/
+__pycache__/
+*.whl
+*.so
+*.dylib
+*.egg-info/
+.pytest_cache/
+
+# System
+.DS_Store
