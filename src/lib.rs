@@ -51,6 +51,16 @@ impl DocumentAnalyzer {
                     }
                 }
             });
+
+            use std::sync::Arc;
+            let bpe_res = match &analysis_config.tokenizer_name as &str {
+                "r50k_base" => tiktoken_rs::r50k_base(),
+                "p50k_base" => tiktoken_rs::p50k_base(),
+                _ => tiktoken_rs::cl100k_base(),
+            };
+            if let Ok(bpe) = bpe_res {
+                analysis_config.bpe = Some(Arc::new(bpe));
+            }
         }
 
         DocumentAnalyzer {
@@ -137,7 +147,7 @@ impl DocumentAnalyzer {
         if doc.metadata.contains_key("unsupported_format") {
             return Ok(0);
         }
-        Ok(recommendations::get_token_count(&doc.text, &self.config.tokenizer_name))
+        Ok(recommendations::get_token_count(&doc.text, &self.config.bpe, &self.config.tokenizer_name))
     }
 
     fn count_chars(&self, file_path: String) -> PyResult<usize> {
@@ -170,7 +180,7 @@ impl DocumentAnalyzer {
         if doc.metadata.contains_key("unsupported_format") {
             return Ok(0);
         }
-        Ok(recommendations::get_token_count(&doc.text, &self.config.tokenizer_name))
+        Ok(recommendations::get_token_count(&doc.text, &self.config.bpe, &self.config.tokenizer_name))
     }
 
     fn count_chars_bytes(&self, content: Vec<u8>, file_name: String) -> PyResult<usize> {

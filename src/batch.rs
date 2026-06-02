@@ -12,22 +12,28 @@ use super::quality::evaluate_quality;
 use super::classifier::classify_domain;
 use super::recommendations::generate_recommendations;
 
+use std::sync::Arc;
+use tiktoken_rs::CoreBPE;
+
 pub struct AnalysisConfig {
     pub target_model: String,
     pub tokenizer_name: String,
     pub embedding_rate_per_million: f64,
     pub llm_input_rate_per_million: f64,
     pub max_file_size: usize,
+    pub bpe: Option<Arc<CoreBPE>>,
 }
 
 impl Default for AnalysisConfig {
     fn default() -> Self {
+        let bpe = tiktoken_rs::cl100k_base().ok().map(Arc::new);
         AnalysisConfig {
             target_model: "gpt-4".to_string(),
             tokenizer_name: "cl100k_base".to_string(),
             embedding_rate_per_million: 0.02,
             llm_input_rate_per_million: 5.00,
             max_file_size: 50 * 1024 * 1024, // 50MB default limit
+            bpe,
         }
     }
 }
@@ -153,6 +159,7 @@ pub fn analyze_single_document(
         quality_score,
         requires_ocr,
         security_risk_str,
+        &config.bpe,
         &config.tokenizer_name,
         &config.target_model,
         config.embedding_rate_per_million,

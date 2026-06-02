@@ -1,4 +1,7 @@
 
+use std::sync::Arc;
+use tiktoken_rs::CoreBPE;
+
 pub struct RecommendationResult {
     pub token_count: usize,
     pub fits_context: bool,
@@ -9,16 +12,20 @@ pub struct RecommendationResult {
     pub estimated_llm_cost: f64,
 }
 
-pub fn get_token_count(text: &str, tokenizer_name: &str) -> usize {
-    let bpe_res = match tokenizer_name {
-        "r50k_base" => tiktoken_rs::r50k_base(),
-        "p50k_base" => tiktoken_rs::p50k_base(),
-        _ => tiktoken_rs::cl100k_base(), // default to cl100k_base used by GPT-4 and Claude
-    };
-    
-    match bpe_res {
-        Ok(bpe) => bpe.encode_ordinary(text).len(),
-        Err(_) => text.len() / 4, // fallback approximation (approx 4 chars per token)
+pub fn get_token_count(text: &str, bpe_opt: &Option<Arc<CoreBPE>>, tokenizer_name: &str) -> usize {
+    if let Some(ref bpe) = bpe_opt {
+        bpe.encode_ordinary(text).len()
+    } else {
+        let bpe_res = match tokenizer_name {
+            "r50k_base" => tiktoken_rs::r50k_base(),
+            "p50k_base" => tiktoken_rs::p50k_base(),
+            _ => tiktoken_rs::cl100k_base(), // default to cl100k_base used by GPT-4 and Claude
+        };
+        
+        match bpe_res {
+            Ok(bpe) => bpe.encode_ordinary(text).len(),
+            Err(_) => text.len() / 4, // fallback approximation (approx 4 chars per token)
+        }
     }
 }
 
@@ -61,12 +68,13 @@ pub fn generate_recommendations(
     quality_score: f64,
     requires_ocr: bool,
     security_risk: &str,
+    bpe_opt: &Option<Arc<CoreBPE>>,
     tokenizer_name: &str,
     target_model: &str,
     embedding_rate_per_million: f64,
     llm_input_rate_per_million: f64,
 ) -> RecommendationResult {
-    let token_count = get_token_count(text, tokenizer_name);
+    let token_count = get_token_count(text, bpe_opt, tokenizer_name);
     let fits_context = validate_context_window(token_count, target_model);
     let requires_summarization = token_count > 4000 || page_count > 10;
     let recommended_chunking = recommend_chunking(token_count, format, domain);
