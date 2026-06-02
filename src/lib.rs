@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn test_recommendations() {
         let text = "sample text ".repeat(100);
-        let token_count = recommendations::get_token_count(&text, "cl100k_base");
+        let token_count = recommendations::get_token_count(&text, &None, "cl100k_base");
         assert!(token_count > 50);
 
         let fits = recommendations::validate_context_window(token_count, "gpt-3.5-turbo");
