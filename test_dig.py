@@ -46,6 +46,31 @@ def test_basic():
         assert results[1]["duplicate"] is True
         assert results[0]["document_class"] == "Legal"
         assert results[0]["recommended_agent"] == "LegalAgent"
+
+        # Test new single-metric APIs
+        print("\nTesting new single-metric APIs...")
+        words = analyzer.count_words_bytes(text_data, "supply.txt")
+        tokens = analyzer.count_tokens_bytes(text_data, "supply.txt")
+        chars = analyzer.count_chars_bytes(text_data, "supply.txt")
+        print(f"Single-metric count results: words={words}, tokens={tokens}, chars={chars}")
+        assert words == 70
+        assert tokens == 81
+        assert chars == 520
+
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f:
+            f.write(text_data)
+            temp_path = f.name
+        try:
+            f_words = analyzer.count_words(temp_path)
+            f_tokens = analyzer.count_tokens(temp_path)
+            f_chars = analyzer.count_chars(temp_path)
+            print(f"File single-metric count results: words={f_words}, tokens={f_tokens}, chars={f_chars}")
+            assert f_words == 70
+            assert f_tokens == 81
+            assert f_chars == 520
+        finally:
+            os.unlink(temp_path)
+
         print("\nAll integration tests passed successfully!")
     finally:
         os.unlink(f1_path)

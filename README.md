@@ -60,6 +60,24 @@ print(directory_results["summary"])
 
 ---
 
+## Dedicated Single-Metric Helpers (Ultra-Fast)
+
+If you only need to retrieve a single statistic (like word counts, characters, or token counts) without running the full intelligence, routing, and security scanning engines, you can use these dedicated, sub-millisecond helper methods:
+
+```python
+# File-based helper methods
+word_count = analyzer.count_words("quarterly_report.pdf")
+token_count = analyzer.count_tokens("quarterly_report.pdf")
+char_count = analyzer.count_chars("quarterly_report.pdf")
+
+# Byte-based helper methods (for streams/in-memory buffers)
+word_count = analyzer.count_words_bytes(pdf_bytes, "quarterly_report.pdf")
+token_count = analyzer.count_tokens_bytes(pdf_bytes, "quarterly_report.pdf")
+char_count = analyzer.count_chars_bytes(pdf_bytes, "quarterly_report.pdf")
+```
+
+---
+
 ## Output Telemetry Schema
 
 DIG generates a structured, metadata-rich telemetry report for every analyzed file:

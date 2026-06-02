@@ -105,6 +105,81 @@ impl DocumentAnalyzer {
         serde_json::to_string(&result_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
+
+    fn count_words(&self, file_path: String) -> PyResult<usize> {
+        let path = Path::new(&file_path);
+        let file_name = path.file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| file_path.clone());
+
+        let bytes = std::fs::read(path).map_err(|e| {
+            pyo3::exceptions::PyFileNotFoundError::new_err(format!("Could not read file: {}", e))
+        })?;
+
+        let doc = parsers::parse_document(&bytes, &file_name);
+        if doc.metadata.contains_key("unsupported_format") {
+            return Ok(0);
+        }
+        Ok(doc.text.split_whitespace().count())
+    }
+
+    fn count_tokens(&self, file_path: String) -> PyResult<usize> {
+        let path = Path::new(&file_path);
+        let file_name = path.file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| file_path.clone());
+
+        let bytes = std::fs::read(path).map_err(|e| {
+            pyo3::exceptions::PyFileNotFoundError::new_err(format!("Could not read file: {}", e))
+        })?;
+
+        let doc = parsers::parse_document(&bytes, &file_name);
+        if doc.metadata.contains_key("unsupported_format") {
+            return Ok(0);
+        }
+        Ok(recommendations::get_token_count(&doc.text, &self.config.tokenizer_name))
+    }
+
+    fn count_chars(&self, file_path: String) -> PyResult<usize> {
+        let path = Path::new(&file_path);
+        let file_name = path.file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| file_path.clone());
+
+        let bytes = std::fs::read(path).map_err(|e| {
+            pyo3::exceptions::PyFileNotFoundError::new_err(format!("Could not read file: {}", e))
+        })?;
+
+        let doc = parsers::parse_document(&bytes, &file_name);
+        if doc.metadata.contains_key("unsupported_format") {
+            return Ok(0);
+        }
+        Ok(doc.text.chars().count())
+    }
+
+    fn count_words_bytes(&self, content: Vec<u8>, file_name: String) -> PyResult<usize> {
+        let doc = parsers::parse_document(&content, &file_name);
+        if doc.metadata.contains_key("unsupported_format") {
+            return Ok(0);
+        }
+        Ok(doc.text.split_whitespace().count())
+    }
+
+    fn count_tokens_bytes(&self, content: Vec<u8>, file_name: String) -> PyResult<usize> {
+        let doc = parsers::parse_document(&content, &file_name);
+        if doc.metadata.contains_key("unsupported_format") {
+            return Ok(0);
+        }
+        Ok(recommendations::get_token_count(&doc.text, &self.config.tokenizer_name))
+    }
+
+    fn count_chars_bytes(&self, content: Vec<u8>, file_name: String) -> PyResult<usize> {
+        let doc = parsers::parse_document(&content, &file_name);
+        if doc.metadata.contains_key("unsupported_format") {
+            return Ok(0);
+        }
+        Ok(doc.text.chars().count())
+    }
 }
 
 fn get_directory_files(dir: &Path, recursive: bool, files: &mut Vec<String>) {
@@ -232,5 +307,22 @@ mod tests {
         assert_eq!(report.get("document_class").unwrap().as_str().unwrap(), "Legal");
         assert_eq!(report.get("security_risk").unwrap().as_str().unwrap(), "low");
         assert_eq!(report.get("rag_ready").unwrap().as_bool().unwrap(), true);
+    }
+
+    #[test]
+    fn test_single_metrics() {
+        let content = b"This is a legal document agreement contract liability clause for procurement vendor.";
+        let analyzer = DocumentAnalyzer {
+            config: AnalysisConfig::default(),
+        };
+        
+        let words = analyzer.count_words_bytes(content.to_vec(), "agreement.txt".to_string()).unwrap();
+        assert_eq!(words, 12);
+
+        let tokens = analyzer.count_tokens_bytes(content.to_vec(), "agreement.txt".to_string()).unwrap();
+        assert!(tokens > 10);
+
+        let chars = analyzer.count_chars_bytes(content.to_vec(), "agreement.txt".to_string()).unwrap();
+        assert_eq!(chars, content.len());
     }
 }
