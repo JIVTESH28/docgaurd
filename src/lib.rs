@@ -8,6 +8,7 @@ mod quality;
 mod classifier;
 mod recommendations;
 mod batch;
+mod pii;
 
 use batch::{AnalysisConfig, analyze_single_document, analyze_batch_files, calculate_sha256};
 
@@ -114,6 +115,13 @@ impl DocumentAnalyzer {
         
         serde_json::to_string(&result_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (text, entities = None))]
+    fn redact_pii(&self, py: Python<'_>, text: String, entities: Option<Vec<String>>) -> PyResult<String> {
+        py.allow_threads(|| {
+            Ok(pii::redact_pii(&text, &entities.unwrap_or_default()))
+        })
     }
 
     fn count_words(&self, file_path: String) -> PyResult<usize> {
@@ -266,11 +274,11 @@ mod tests {
 
     #[test]
     fn test_quality_and_ocr() {
-        let text = "This is a digital text with a lot of words so it has high density and readability.";
+        let text = "This is a digital text with a lot of words so it has high density and readability. ".repeat(10);
         let mut metadata = HashMap::new();
         metadata.insert("format".to_string(), "pdf".to_string());
         
-        let (score, requires_ocr) = quality::evaluate_quality(text, 1, 1000, &metadata, false);
+        let (score, requires_ocr) = quality::evaluate_quality(&text, 1, 1000, &metadata, false);
         assert!(score > 0.4);
         assert!(!requires_ocr);
 
@@ -295,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_recommendations() {
-        let text = "sample text ".repeat(100);
+        let text = "sample text ".repeat(300);
         let token_count = recommendations::get_token_count(&text, &None, "cl100k_base");
         assert!(token_count > 50);
 
@@ -308,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_pipeline() {
-        let content = b"This is a legal document agreement contract liability clause for procurement vendor.";
+        let content = b"This is a legal document agreement contract liability clause. This contract governs the agreement between the parties under governing law. NDA and disclosure rules apply. All disputes shall be resolved by arbitration. The parties agree to the warranty and breach of contract terms under this agreement. This contract is final.";
         let hash = calculate_sha256(content);
         let config = AnalysisConfig::default();
         
@@ -334,5 +342,20 @@ mod tests {
 
         let chars = analyzer.count_chars_bytes(content.to_vec(), "agreement.txt".to_string()).unwrap();
         assert_eq!(chars, content.len());
+    }
+
+    #[test]
+    fn test_pii_detection_and_redaction() {
+        let text = "My email is test@example.com and phone is 123-456-7890.";
+        let found = pii::detect_pii(text);
+        assert!(found.contains(&"email".to_string()));
+        assert!(found.contains(&"phone".to_string()));
+        assert!(!found.contains(&"ssn".to_string()));
+
+        let redacted_all = pii::redact_pii(text, &[]);
+        assert_eq!(redacted_all, "My email is [EMAIL] and phone is [PHONE].");
+
+        let redacted_only_email = pii::redact_pii(text, &["email".to_string()]);
+        assert_eq!(redacted_only_email, "My email is [EMAIL] and phone is 123-456-7890.");
     }
 }

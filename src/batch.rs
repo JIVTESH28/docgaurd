@@ -75,6 +75,8 @@ pub fn analyze_single_document(
             "recommended_chunking": "no chunking",
             "document_class": "Technical Documentation",
             "recommended_agent": "TechnicalDocAgent",
+            "contains_pii": false,
+            "pii_categories_found": Vec::<String>::new(),
             "estimated_embedding_cost": 0.0,
             "estimated_llm_cost": 0.0,
             "processing_time_ms": start_time.elapsed().as_secs_f64() * 1000.0
@@ -101,6 +103,8 @@ pub fn analyze_single_document(
             "recommended_chunking": "no chunking",
             "document_class": "Technical Documentation",
             "recommended_agent": "TechnicalDocAgent",
+            "contains_pii": false,
+            "pii_categories_found": Vec::<String>::new(),
             "estimated_embedding_cost": 0.0,
             "estimated_llm_cost": 0.0,
             "processing_time_ms": start_time.elapsed().as_secs_f64() * 1000.0
@@ -129,6 +133,8 @@ pub fn analyze_single_document(
             "recommended_chunking": "no chunking",
             "document_class": "Technical Documentation",
             "recommended_agent": "TechnicalDocAgent",
+            "contains_pii": false,
+            "pii_categories_found": Vec::<String>::new(),
             "estimated_embedding_cost": 0.0,
             "estimated_llm_cost": 0.0,
             "processing_time_ms": start_time.elapsed().as_secs_f64() * 1000.0
@@ -150,6 +156,8 @@ pub fn analyze_single_document(
     );
 
     let (domain, agent) = classify_domain(&doc.text);
+    let pii_categories = super::pii::detect_pii(&doc.text);
+    let contains_pii = !pii_categories.is_empty();
 
     let recs = generate_recommendations(
         &doc.text,
@@ -186,6 +194,8 @@ pub fn analyze_single_document(
         "recommended_chunking": recs.recommended_chunking,
         "document_class": domain,
         "recommended_agent": agent,
+        "contains_pii": contains_pii,
+        "pii_categories_found": pii_categories,
         "estimated_embedding_cost": recs.estimated_embedding_cost,
         "estimated_llm_cost": recs.estimated_llm_cost,
         "processing_time_ms": (processing_time_ms * 100.0).round() / 100.0
@@ -260,6 +270,8 @@ pub fn analyze_batch_files(
                         "recommended_chunking": "no chunking",
                         "document_class": "Technical Documentation",
                         "recommended_agent": "TechnicalDocAgent",
+                        "contains_pii": false,
+                        "pii_categories_found": Vec::<String>::new(),
                         "estimated_embedding_cost": 0.0,
                         "estimated_llm_cost": 0.0,
                         "processing_time_ms": 0.0
@@ -282,6 +294,7 @@ pub fn analyze_batch_files(
     let mut total_llm_cost = 0.0;
     let mut duplicate_count = 0;
     let mut ocr_required_count = 0;
+    let mut pii_files_count = 0;
     
     let mut class_distribution = HashMap::new();
     let mut risk_distribution = HashMap::new();
@@ -307,6 +320,9 @@ pub fn analyze_batch_files(
             if report.get("requires_ocr").and_then(|v| v.as_bool()).unwrap_or(false) {
                 ocr_required_count += 1;
             }
+            if report.get("contains_pii").and_then(|v| v.as_bool()).unwrap_or(false) {
+                pii_files_count += 1;
+            }
 
             if let Some(doc_class) = report.get("document_class").and_then(|v| v.as_str()) {
                 *class_distribution.entry(doc_class.to_string()).or_insert(0) += 1;
@@ -328,6 +344,7 @@ pub fn analyze_batch_files(
             "total_pages": total_pages,
             "duplicate_files": duplicate_count,
             "ocr_required_files": ocr_required_count,
+            "pii_files": pii_files_count,
             "total_estimated_embedding_cost": (total_embedding_cost * 10000.0).round() / 10000.0,
             "total_estimated_llm_cost": (total_llm_cost * 10000.0).round() / 10000.0,
             "class_distribution": class_distribution,

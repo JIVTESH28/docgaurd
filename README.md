@@ -22,6 +22,7 @@ DocGaurd (Document Intelligence Gateway) is a high-performance document validati
 *   **💾 Global De-duplication** - Computes high-performance SHA-256 content hashes in parallel to identify and skip exact duplicate files inside a batch queue automatically.
 *   **💰 Dynamic Cost Estimation** - Estimates LLM input cost and vector database embedding cost dynamically before making external API requests.
 *   **🎯 Intelligent Agent Routing** - Classifies text based on heuristic token frequencies and assigns a target downstream AI Agent (e.g., `LegalAgent`, `ProcurementAgent`).
+*   **🔒 Rust-Native PII Redaction & Data Masking** - Detects and masks Personally Identifiable Information (PII) like emails, phone numbers, SSNs, IP addresses, and credit cards directly in Rust before data leaves your environment.
 
 ---
 
@@ -104,6 +105,13 @@ token_count = analyzer.count_tokens("document.docx")
 
 # Raw metric count helpers (Byte-based)
 token_count = analyzer.count_tokens_bytes(uploaded_bytes, "invoice.txt")
+
+# Rust-Native PII Redaction & Data Masking
+pii_text = "My email is test@example.com and phone is 123-456-7890."
+# Redact all supported categories (email, phone, ssn, ip, credit_card)
+redacted_all = analyzer.redact_pii(pii_text) # "My email is [EMAIL] and phone is [PHONE]."
+# Or redact only specific categories
+redacted_email = analyzer.redact_pii(pii_text, ["email"]) # "My email is [EMAIL] and phone is 123-456-7890."
 ```
 
 ---
@@ -131,6 +139,8 @@ DocGaurd generates a comprehensive, metadata-rich telemetry report for every ana
   "recommended_chunking": "semantic chunking",
   "document_class": "Legal",
   "recommended_agent": "LegalAgent",
+  "contains_pii": true,
+  "pii_categories_found": ["email", "phone"],
   "estimated_embedding_cost": 0.0,
   "estimated_llm_cost": 0.0121,
   "processing_time_ms": 12.34
@@ -158,6 +168,8 @@ DocGaurd generates a comprehensive, metadata-rich telemetry report for every ana
 | `recommended_chunking` | String | Suggested chunking strategy (`no chunking`, `fixed`, `semantic`, `hierarchical`, `agentic`). |
 | `document_class` | String | Classified topical domain (Finance, Procurement, Legal, HR, Tech Doc, Research, etc.). |
 | `recommended_agent` | String | Recommended target downstream AI Agent target (e.g. `LegalAgent`). |
+| `contains_pii` | Boolean | Flags `true` if document text contains common PII entities (email, phone, SSN, IP, credit card). |
+| `pii_categories_found` | List | Names of PII categories found in the document (e.g., `["email", "phone"]`). |
 | `estimated_embedding_cost`| Float | Predicted vector database indexing cost. |
 | `estimated_llm_cost` | Float | Predicted input processing cost. |
 | `processing_time_ms` | Float | Internal Gateway execution latency in milliseconds. |

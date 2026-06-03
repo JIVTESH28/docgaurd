@@ -71,6 +71,48 @@ def test_basic():
         finally:
             os.unlink(temp_path)
 
+        # Test PII Redaction API
+        print("\nTesting PII redaction APIs...")
+        pii_text = "Contact me at bob@example.com or call 123-456-7890. IP is 192.168.1.50."
+        
+        # Test full redaction
+        redacted_all = analyzer.redact_pii(pii_text)
+        print(f"Redacted all: {redacted_all}")
+        assert "[EMAIL]" in redacted_all
+        assert "[PHONE]" in redacted_all
+        assert "[IP_ADDRESS]" in redacted_all
+        assert "bob@example.com" not in redacted_all
+        assert "123-456-7890" not in redacted_all
+        assert "192.168.1.50" not in redacted_all
+
+        # Test partial redaction (only email)
+        redacted_email_only = analyzer.redact_pii(pii_text, ["email"])
+        print(f"Redacted email only: {redacted_email_only}")
+        assert "[EMAIL]" in redacted_email_only
+        assert "[PHONE]" not in redacted_email_only
+        assert "123-456-7890" in redacted_email_only
+
+        # Test analysis output contains pii fields
+        res_pii = json.loads(analyzer.analyze_bytes(pii_text.encode("utf-8"), "pii_doc.txt"))
+        print("\nPII Document Analysis Result:")
+        print(json.dumps(res_pii, indent=2))
+        assert res_pii["contains_pii"] is True
+        assert "email" in res_pii["pii_categories_found"]
+        assert "phone" in res_pii["pii_categories_found"]
+        assert "ip" in res_pii["pii_categories_found"]
+        
+        # Test batch summary contains pii_files count
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False) as f_pii:
+            f_pii.write(pii_text.encode("utf-8"))
+            f_pii_path = f_pii.name
+        try:
+            batch_pii_res = json.loads(analyzer.analyze_batch([f1_path, f_pii_path]))
+            print("\nBatch PII Analysis Result Summary:")
+            print(json.dumps(batch_pii_res["summary"], indent=2))
+            assert batch_pii_res["summary"]["pii_files"] == 1
+        finally:
+            os.unlink(f_pii_path)
+
         print("\nAll integration tests passed successfully!")
     finally:
         os.unlink(f1_path)
