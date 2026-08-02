@@ -13,11 +13,6 @@ authors = [
     { name = "Jivtesh" }
 ]
 keywords = ["rag", "guardrails", "security", "pdf", "docx", "token-counter", "ocr"]
-
-[project.urls]
-Homepage = "https://github.com/JIVTESH28/docgaurd"
-Repository = "https://github.com/JIVTESH28/docgaurd"
-
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -32,6 +27,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
+
+[project.urls]
+Homepage = "https://github.com/JIVTESH28/docarmor"
+Repository = "https://github.com/JIVTESH28/docarmor"
 
 [tool.maturin]
 features = ["extension-module"]
