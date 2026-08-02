@@ -1,10 +1,10 @@
-# DocGaurd (Document Intelligence Gateway)
+# DocArmor (Document Intelligence Gateway)
 
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyPI version](https://badge.fury.io/py/docgaurd.svg)](https://badge.fury.io/py/docgaurd)
+[![PyPI version](https://badge.fury.io/py/docarmor.svg)](https://badge.fury.io/py/docarmor)
 
-DocGaurd (Document Intelligence Gateway) is a high-performance document validation, security scanning, quality guardrail, and exact token counting engine. Built in Rust with native Python bindings via PyO3, DocGaurd sits between raw document ingestion and downstream LLM/RAG pipelines to prevent system exploitation, database bloat, and unexpected API costs.
+DocArmor (Document Intelligence Gateway) is a high-performance document validation, security scanning, quality guardrail, and exact token counting engine. Built in Rust with native Python bindings via PyO3, DocArmor sits between raw document ingestion and downstream LLM/RAG pipelines to prevent system exploitation, database bloat, and unexpected API costs.
 
 ---
 
@@ -31,14 +31,14 @@ DocGaurd (Document Intelligence Gateway) is a high-performance document validati
 ### From PyPI (Recommended)
 Install pre-compiled native binary wheels instantly on Windows, Linux, or macOS:
 ```bash
-pip install docgaurd
+pip install docarmor
 ```
 *(No Rust compilers, C-libraries, or compilation tools are required on the host system).*
 
 ### From Source
 ```bash
-git clone https://github.com/JIVTESH28/docgaurd.git
-cd docgaurd
+git clone https://github.com/JIVTESH28/docarmor.git
+cd docarmor
 pip install .
 ```
 
@@ -49,10 +49,10 @@ pip install .
 ### Initialize the Analyzer
 ```python
 import json
-import docgaurd
+import docarmor
 
 # Initialize the gateway analyzer with custom thresholds
-analyzer = docgaurd.DocumentAnalyzer({
+analyzer = docarmor.DocumentAnalyzer({
     "target_model": "gpt-4",                   # Target context window check
     "tokenizer_name": "cl100k_base",           # Tiktoken profile
     "embedding_rate_per_million": 0.02,        # Cost per 1M tokens ($)
@@ -118,7 +118,7 @@ redacted_email = analyzer.redact_pii(pii_text, ["email"]) # "My email is [EMAIL]
 
 ## Telemetry Output Schema
 
-DocGaurd generates a comprehensive, metadata-rich telemetry report for every analyzed file:
+DocArmor generates a comprehensive, metadata-rich telemetry report for every analyzed file:
 
 ```json
 {
@@ -224,10 +224,10 @@ graph TD
 ## How the OCR Integration Works
 
 
-DocGaurd implements a high-performance **hybrid OCR gateway** under the `OcrDocumentAnalyzer` class:
+DocArmor implements a high-performance **hybrid OCR gateway** under the `OcrDocumentAnalyzer` class:
 
 1. **Rust-Native Gatekeeping**:
-   When a file is submitted, DocGaurd first uses its sub-millisecond Rust parsers to check the file type and structure.
+   When a file is submitted, DocArmor first uses its sub-millisecond Rust parsers to check the file type and structure.
    - If the document is a clean digital file (e.g., text PDF, Word doc, or markdown), the text is extracted instantly, and the heavy OCR engine is completely bypassed.
    - If the file is an image (`.png`, `.jpg`, `.jpeg`, etc.) or is flagged by the Rust quality scanner as a scanned/text-empty PDF (`requires_ocr: True`), the OCR engine is initialized.
 2. **Lazy Loading**:
@@ -238,7 +238,7 @@ DocGaurd implements a high-performance **hybrid OCR gateway** under the `OcrDocu
    - **Windows/Linux with GPU**: Automatically targets your Nvidia GPU via **CUDA**.
    - **Fallback**: Runs on optimized multi-threaded **CPU**.
 4. **Rust Telemetry Reconciliation**:
-   Once text is extracted via OCR, the raw text bytes are passed back into DocGaurd's Rust core using a virtual text buffer. The Rust engine then computes exact GPT token budgets (`tiktoken-rs`), counts words/characters, runs domain classification, and generates cost estimations—reconciling all statistics back into a single unified JSON schema.
+   Once text is extracted via OCR, the raw text bytes are passed back into DocArmor's Rust core using a virtual text buffer. The Rust engine then computes exact GPT token budgets (`tiktoken-rs`), counts words/characters, runs domain classification, and generates cost estimations—reconciling all statistics back into a single unified JSON schema.
 
 ---
 
@@ -248,9 +248,9 @@ DocGaurd implements a high-performance **hybrid OCR gateway** under the `OcrDocu
 Ensure that only secure, high-quality, digital documents enter your vector database:
 ```python
 import json
-import docgaurd
+import docarmor
 
-analyzer = docgaurd.DocumentAnalyzer()
+analyzer = docarmor.DocumentAnalyzer()
 report = json.loads(analyzer.analyze_file("user_upload.pdf"))
 
 # Intercept risks at the gateway
@@ -269,9 +269,9 @@ else:
 Calculate API transaction costs and verify if a document fits within a model's context window:
 ```python
 import json
-import docgaurd
+import docarmor
 
-analyzer = docgaurd.DocumentAnalyzer({
+analyzer = docarmor.DocumentAnalyzer({
     "target_model": "gpt-3.5-turbo",
     "llm_input_rate_per_million": 1.50
 })
@@ -288,7 +288,7 @@ else:
 Incorporate unified OCR for scanned files directly from the installed package:
 ```python
 import json
-from docgaurd import OcrDocumentAnalyzer
+from docarmor import OcrDocumentAnalyzer
 
 # Initialize unified OcrDocumentAnalyzer (auto-routes to Apple Metal MPS or CUDA)
 gateway = OcrDocumentAnalyzer()

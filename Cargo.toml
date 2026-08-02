@@ -1,11 +1,11 @@
 [package]
-name = "docgaurd"
+name = "docarmor"
 version = "0.1.13"
 edition = "2021"
 authors = ["Jivtesh"]
 
 [lib]
-name = "docgaurd"
+name = "docarmor"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]

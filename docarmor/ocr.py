@@ -1,7 +1,7 @@
 import os
 import json
 from typing import List, Optional
-from .docgaurd import DocumentAnalyzer
+from .docarmor import DocumentAnalyzer
 
 class OcrDocumentAnalyzer:
     """

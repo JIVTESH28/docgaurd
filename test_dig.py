@@ -1,9 +1,9 @@
 import json
-import docgaurd
+import docarmor
 
 def test_basic():
-    print("Testing docgaurd library...")
-    analyzer = docgaurd.DocumentAnalyzer()
+    print("Testing docarmor library...")
+    analyzer = docarmor.DocumentAnalyzer()
     
     text_data = b"This is a safety stock replenishment safety inventory demand planning SKU warehouse forecast logistics. " * 5
     res_str = analyzer.analyze_bytes(text_data, "supply.txt")

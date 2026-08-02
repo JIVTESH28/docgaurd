@@ -216,7 +216,7 @@ fn get_directory_files(dir: &Path, recursive: bool, files: &mut Vec<String>) {
 }
 
 #[pymodule]
-fn docgaurd(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn docarmor(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DocumentAnalyzer>()?;
     Ok(())
 }
