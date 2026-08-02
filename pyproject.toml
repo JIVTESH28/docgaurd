@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "docarmor"
-version = "0.1.13"
+version = "0.1.14"
 description = "High-performance document intelligence gateway and safety guardrail engine."
 readme = "README.md"
 requires-python = ">=3.8"
