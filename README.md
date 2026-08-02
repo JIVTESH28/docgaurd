@@ -202,7 +202,27 @@ DocGaurd generates a comprehensive, metadata-rich telemetry report for every ana
 | `embedding_rate_per_million` | `$0.02` | Custom embedding cost rate |
 ---
 
+## Ingestion Pipeline Flow
+
+```mermaid
+graph TD
+    File[Document Uploaded] --> Security[Security Scanner: check sizes, corruption, zip bombs]
+    Security -->|High Risk| Block[Abort: return error / flag security_risk]
+    Security -->|Safe| Parser[Select Parser based on Extension: PDF, Docx, Xlsx, etc.]
+    Parser --> Quality[Quality Evaluator: calculate density, pages, readability]
+    
+    Quality -->|Text Empty / Scanned| OCR[Lazy-load OCR: GPU Accelerated MPS/CUDA]
+    Quality -->|Readable Text| Metrics[Metrics Evaluator: TikToken Token Counting, PII detection]
+    
+    OCR --> Metrics
+    Metrics --> Router[Heuristic Domain Classifier & Cost Estimator]
+    Router --> JSON[Generate Telemetry JSON Report]
+```
+
+---
+
 ## How the OCR Integration Works
+
 
 DocGaurd implements a high-performance **hybrid OCR gateway** under the `OcrDocumentAnalyzer` class:
 
