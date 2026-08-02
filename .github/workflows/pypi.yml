@@ -95,6 +95,7 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     needs: [linux, windows, macos, sdist]
+    environment: pipit
     permissions:
       id-token: write
     steps:
