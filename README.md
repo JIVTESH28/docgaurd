@@ -225,6 +225,18 @@ DocArmor's **Pre-Ingestion Knowledge Base Engine** (`kb.rs`) sits directly befor
 
 ---
 
+### Real-World Legal Document Benchmark Comparison
+
+Benchmark evaluating a 12-page Master Services Agreement (`master_services_agreement.pdf`) containing legal indemnification, liability limitations, PII data privacy clauses, and arbitration governance terms across Claude model profiles:
+
+| Target Model Profile | Model Target String | Raw Input Tokens | Knowledge Base Tokens | Token Reduction (%) | Raw Input Cost ($) | Knowledge Base Cost ($) | Net Cost Savings ($) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Claude 5 Sonnet** | `claude-5-sonnet` | 14,000 tokens | 3,795 tokens | **72.9% Reduction** | $0.04200 USD | $0.01139 USD | **$0.03061 USD** |
+| **Claude 5 Opus** | `claude-5-opus` | 14,000 tokens | 3,795 tokens | **72.9% Reduction** | $0.07000 USD | $0.01898 USD | **$0.05102 USD** |
+| **Claude Fable / Haiku** | `claude-fable` | 14,000 tokens | 3,795 tokens | **72.9% Reduction** | $0.01120 USD | $0.00303 USD | **$0.00817 USD** |
+
+---
+
 ### Multi-Model Support Matrix
 
 | Model Family | Target Model Identifiers | Rate per 1M Tokens | Context Window Limit |
