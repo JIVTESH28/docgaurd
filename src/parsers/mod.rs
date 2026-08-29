@@ -20,6 +20,7 @@ pub fn parse_document(content: &[u8], file_name: &str) -> ExtractedDoc {
         "json" => text::parse_json(content),
         "xml" => text::parse_xml(content),
         "html" | "htm" => text::parse_html(content),
+        "py" | "rs" | "go" | "js" | "ts" | "jsx" | "tsx" | "java" | "c" | "cpp" | "h" | "hpp" | "sh" | "bash" | "toml" | "yaml" | "yml" | "sql" | "css" | "scss" | "env" | "lock" => text::parse_txt(content),
         _ => {
             let mut metadata = HashMap::new();
             metadata.insert("unsupported_format".to_string(), "true".to_string());

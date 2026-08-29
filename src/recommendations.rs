@@ -30,14 +30,19 @@ pub fn get_token_count(text: &str, bpe_opt: &Option<Arc<CoreBPE>>, tokenizer_nam
 }
 
 pub fn validate_context_window(token_count: usize, model_name: &str) -> bool {
-    let limit = match model_name.to_lowercase().as_str() {
-        "gpt-4" | "gpt-4-turbo" | "gpt-4o" => 128_000,
-        "gpt-3.5-turbo" | "gpt-3.5" => 16_385,
-        "claude-3" | "claude-3.5-sonnet" | "claude-3-opus" | "claude-3-haiku" => 200_000,
-        "gemini-1.5" | "gemini-1.5-pro" | "gemini-1.5-flash" => 1_000_000,
-        "llama-3" => 8_192,
-        "mistral-7b" | "mixtral" => 32_768,
-        _ => 8_192, // Safe default context window
+    let lower = model_name.to_lowercase();
+    let limit = if lower.contains("claude") || lower.contains("sonnet") || lower.contains("opus") || lower.contains("haiku") {
+        200_000
+    } else if lower.contains("gemini") {
+        1_000_000
+    } else if lower.contains("gpt-5") || lower.contains("gpt-4o") || lower.contains("gpt-4") {
+        128_000
+    } else if lower.contains("deepseek") {
+        64_000
+    } else if lower.contains("llama") {
+        128_000
+    } else {
+        128_000
     };
     token_count <= limit
 }

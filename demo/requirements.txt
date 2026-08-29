@@ -1,0 +1,6 @@
+docarmor
+streamlit
+pypdf
+python-pptx
+python-docx
+requests

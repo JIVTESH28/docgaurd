@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="220" viewBox="0 0 450 220" fill="none">
+  <rect width="450" height="220" rx="15" fill="#0D1117" stroke="#6C63FF" stroke-width="1.5"/>
+  <text x="35" y="45" fill="#6C63FF" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="700" font-size="20">Jivtesh's GitHub Stats</text>
+  
+  <g transform="translate(35, 75)">
+    <!-- Repos -->
+    <text x="0" y="20" fill="#4ECDC4" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="600">📦 Public Repositories:</text>
+    <text x="380" y="20" fill="#FFFFFF" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="700" text-anchor="end">26</text>
+    
+    <!-- Followers -->
+    <text x="0" y="55" fill="#45B7D1" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="600">👥 Followers:</text>
+    <text x="380" y="55" fill="#FFFFFF" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="700" text-anchor="end">5</text>
+    
+    <!-- Following -->
+    <text x="0" y="90" fill="#96CEB4" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="600">🌐 Following:</text>
+    <text x="380" y="90" fill="#FFFFFF" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="700" text-anchor="end">4</text>
+    
+    <!-- Contributions -->
+    <text x="0" y="125" fill="#FFEAA7" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="600">⚡ Primary Tech:</text>
+    <text x="380" y="125" fill="#FFFFFF" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="15" font-weight="700" text-anchor="end">Python / Rust / TS</text>
+  </g>
+</svg>

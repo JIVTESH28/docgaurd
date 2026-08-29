@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="450" height="220" viewBox="0 0 450 220" fill="none">
+  <rect width="450" height="220" rx="15" fill="#0D1117" stroke="#6C63FF" stroke-width="1.5"/>
+  <text x="35" y="45" fill="#6C63FF" font-family="'Segoe UI', Ubuntu, sans-serif" font-weight="700" font-size="20">Top Languages by Repos</text>
+  
+  <g transform="translate(35, 75)">
+    <!-- Python (38%) -->
+    <text x="0" y="18" fill="#A9A9A9" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="13">Python (38%)</text>
+    <rect x="150" y="7" width="220" height="12" rx="6" fill="#161B22"/>
+    <rect x="150" y="7" width="83.6" height="12" rx="6" fill="#3572A5"/>
+    
+    <!-- TypeScript (14%) -->
+    <text x="0" y="48" fill="#A9A9A9" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="13">TypeScript (14%)</text>
+    <rect x="150" y="37" width="220" height="12" rx="6" fill="#161B22"/>
+    <rect x="150" y="37" width="30.8" height="12" rx="6" fill="#3178C6"/>
+    
+    <!-- JavaScript (14%) -->
+    <text x="0" y="78" fill="#A9A9A9" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="13">JavaScript (14%)</text>
+    <rect x="150" y="67" width="220" height="12" rx="6" fill="#161B22"/>
+    <rect x="150" y="67" width="30.8" height="12" rx="6" fill="#F7DF1E"/>
+    
+    <!-- Rust (10%) -->
+    <text x="0" y="108" fill="#A9A9A9" font-family="'Segoe UI', Ubuntu, sans-serif" font-size="13">Rust (10%)</text>
+    <rect x="150" y="97" width="220" height="12" rx="6" fill="#161B22"/>
+    <rect x="150" y="97" width="22" height="12" rx="6" fill="#DEA584"/>
+  </g>
+</svg>

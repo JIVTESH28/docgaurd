@@ -14,8 +14,11 @@ DocArmor (Document Intelligence Gateway) is a high-performance document validati
 
 ## Features
 
+*   **🧠 Pre-Ingestion Knowledge Base Engine (v0.2.0)** - Converts raw PDFs, images, spreadsheets, and multi-file codebases into hyper-compressed, linked Knowledge Base Markdown (`.md`) with Table of Contents (TOC), executive summaries, and deep anchor links.
+*   **📉 Multi-Model Token Reduction Telemetry** - Achieves up to **60-90%+ token reduction** before passing content to LLM agents across Claude 3.5/3.7, GPT-4o, Gemini 1.5/2.0, LLaMA 3, and DeepSeek R1/V3.
+*   **🌐 "One Brain" Project Repository Ingestion** - Recursively aggregates full multi-file codebases or directory trees into a single structured project Knowledge Base with file tree indexes and module breakdowns.
 *   **✨ Real GPT Tokenization** - Integrates high-performance `tiktoken-rs` in Rust to calculate exact GPT token budgets (not approximations) for models like GPT-4, GPT-3.5, Claude, or LLaMA.
-*   **⚡ Multi-Format Support** - Seamlessly extracts text and parses metadata from PDF, TXT, MD, DOCX, PPTX, XLSX, CSV, JSON, XML, and HTML files.
+*   **⚡ Multi-Format Support** - Seamlessly extracts text and parses metadata from PDF, TXT, MD, DOCX, PPTX, XLSX, CSV, JSON, XML, HTML, and code files (`.py`, `.rs`, `.go`, `.js`, `.ts`, `.java`, `.cpp`, `.c`, `.sh`, `.sql`).
 *   **🛡️ Ingestion Security** - Built-in security scanners inspect compressed documents and file headers to intercept Zip bombs, compression bombs, and oversized resource limits before they reach system memory.
 *   **🔍 Text Quality & OCR Necessity Detection** - Evaluates page text density, whitespace-to-character ratio, and empty page signals to flag scanned/image-only documents (`requires_ocr`) before vector database embedding.
 *   **🚀 Native Parallel Batch Processing** - Utilizes Rust's concurrent work-stealing thread pool (`Rayon`) to process thousands of files or directory trees in parallel with zero GIL serialization.
@@ -93,6 +96,27 @@ print(f"Duplicates skipped: {batch_report['summary']['duplicate_files']}")
 dir_report_str = analyzer.analyze_directory("./archive", recursive=True)
 dir_report = json.loads(dir_report_str)
 print(f"Total directory tokens: {dir_report['summary']['total_tokens']}")
+```
+
+#### 🧠 Knowledge Base Pre-Ingestion (.md) Conversion (New in v0.2.0)
+Pre-ingests bloated PDFs, documents, images, or full code repositories and converts them into hyper-compressed, linked Knowledge Base Markdown documents with token savings telemetry:
+
+```python
+# 1. Top-Level Convenience Helper (File, Directory, or Bytes)
+kb_result = docarmor.to_knowledge_base("procurement_agreement.pdf", target_model="claude-3-5-sonnet")
+
+print(kb_result["markdown"])
+print(f"Token Reduction : {kb_result['telemetry']['reduction_percentage']}%")
+print(f"Cost Savings    : ${kb_result['telemetry']['cost_savings_usd']}")
+
+# 2. Multi-File Project Repository Ingestion ("One Brain")
+project_kb = analyzer.convert_directory_to_kb("./my_project", recursive=True, target_model="gemini-1.5-pro")
+proj_data = json.loads(project_kb)
+print(f"Project Files: {proj_data['telemetry']['total_files']} | Savings: {proj_data['telemetry']['reduction_percentage']}%")
+
+# 3. Hardware-Accelerated OCR to Knowledge Base Markdown
+ocr_analyzer = docarmor.OcrDocumentAnalyzer()
+ocr_kb_str = ocr_analyzer.convert_file_to_kb("scanned_invoice.png", target_model="gpt-4o")
 ```
 
 #### Ultra-Fast Single-Metric Bypasses

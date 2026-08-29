@@ -9,6 +9,7 @@ mod classifier;
 mod recommendations;
 mod batch;
 mod pii;
+mod kb;
 
 use batch::{AnalysisConfig, analyze_single_document, analyze_batch_files, calculate_sha256};
 
@@ -114,6 +115,43 @@ impl DocumentAnalyzer {
         let result_val = analyze_batch_files(&file_paths, &self.config);
         
         serde_json::to_string(&result_val)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (file_path, target_model = None))]
+    fn convert_file_to_kb(&self, file_path: String, target_model: Option<String>) -> PyResult<String> {
+        let path = Path::new(&file_path);
+        let file_name = path.file_name()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| file_path.clone());
+
+        let bytes = std::fs::read(path).map_err(|e| {
+            pyo3::exceptions::PyFileNotFoundError::new_err(format!("Could not read file: {}", e))
+        })?;
+
+        let model = target_model.unwrap_or_else(|| self.config.target_model.clone());
+        let res_val = kb::convert_single_to_kb(&bytes, &file_name, &model, &self.config);
+        
+        serde_json::to_string(&res_val)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (content, file_name, target_model = None))]
+    fn convert_bytes_to_kb(&self, content: Vec<u8>, file_name: String, target_model: Option<String>) -> PyResult<String> {
+        let model = target_model.unwrap_or_else(|| self.config.target_model.clone());
+        let res_val = kb::convert_single_to_kb(&content, &file_name, &model, &self.config);
+        
+        serde_json::to_string(&res_val)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (dir_path, recursive = None, target_model = None))]
+    fn convert_directory_to_kb(&self, dir_path: String, recursive: Option<bool>, target_model: Option<String>) -> PyResult<String> {
+        let is_recursive = recursive.unwrap_or(true);
+        let model = target_model.unwrap_or_else(|| self.config.target_model.clone());
+        let res_val = kb::convert_directory_to_kb(&dir_path, is_recursive, &model, &self.config);
+        
+        serde_json::to_string(&res_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
@@ -357,5 +395,22 @@ mod tests {
 
         let redacted_only_email = pii::redact_pii(text, &["email".to_string()]);
         assert_eq!(redacted_only_email, "My email is [EMAIL] and phone is 123-456-7890.");
+    }
+
+    #[test]
+    fn test_kb_conversion() {
+        let content = b"This is a legal agreement contract liability clause for governing law. Section 1: Indemnity rules and warranty.\nSection 2: Intellectual property rights and terms.";
+        let config = AnalysisConfig::default();
+        let res = kb::convert_single_to_kb(content, "contract.txt", "claude-3-5-sonnet", &config);
+        
+        let markdown = res.get("markdown").unwrap().as_str().unwrap();
+        assert!(markdown.contains("# Knowledge Base: contract.txt"));
+        assert!(markdown.contains("Table of Contents"));
+        assert!(markdown.contains("Executive Summary"));
+
+        let telemetry = res.get("telemetry").unwrap();
+        assert_eq!(telemetry.get("target_model").unwrap().as_str().unwrap(), "claude-3-5-sonnet");
+        assert!(telemetry.get("raw_tokens").unwrap().as_u64().unwrap() > 0);
+        assert!(telemetry.get("kb_tokens").unwrap().as_u64().unwrap() > 0);
     }
 }

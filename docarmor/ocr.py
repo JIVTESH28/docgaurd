@@ -119,3 +119,22 @@ class OcrDocumentAnalyzer:
         report["fits_context"] = bytes_report.get("fits_context")
         
         return json.dumps(report, indent=2)
+
+    def convert_file_to_kb(self, file_path: str, target_model: str = "claude-3-5-sonnet", force_ocr: bool = False) -> str:
+        """
+        Converts an image or scanned document into a Knowledge Base Markdown (.md) document,
+        running hardware-accelerated OCR if needed, and calculating token reduction telemetry.
+        """
+        ext = file_path.split('.')[-1].lower() if '.' in file_path else ""
+        is_image = ext in {"png", "jpg", "jpeg", "tiff", "bmp", "webp", "gif"}
+        
+        if is_image or force_ocr:
+            self._init_ocr()
+            results = self.ocr_reader.readtext(file_path, detail=0)
+            ocr_text = "\n".join(results)
+            ocr_bytes = ocr_text.encode('utf-8')
+            filename = os.path.basename(file_path)
+            return self.analyzer.convert_bytes_to_kb(ocr_bytes, filename, target_model)
+        else:
+            return self.analyzer.convert_file_to_kb(file_path, target_model)
+
