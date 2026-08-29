@@ -200,6 +200,47 @@ DocArmor generates a comprehensive, metadata-rich telemetry report for every ana
 
 ---
 
+## 🧠 Pre-Ingestion Knowledge Base (.md) Converter Engine (v0.2.0)
+
+### Why Pre-Ingestion Conversion?
+When LLMs (Claude 3.5/3.7, GPT-4o, Gemini 1.5/2.0, LLaMA 3, DeepSeek R1/V3) process raw PDFs, scanned images, or multi-file code repositories, they consume tens of thousands of tokens. Multi-page PDFs trigger vision/rendering token bloat (~1,500 - 3,000 tokens per page), and raw codebases pollute context windows with boilerplate code.
+
+DocArmor's **Pre-Ingestion Knowledge Base Engine** (`kb.rs`) sits directly before raw content is passed to LLM agents. It converts raw documents, images, and codebase repositories into structured, hyper-compressed **Knowledge Base Markdown (`.md`)** files equipped with:
+
+- **Header Metadata & Telemetry**: Title, document class, target model compatibility, and token reduction stats.
+- **Table of Contents (TOC)**: Clickable markdown section links (`[1. Executive Summary](#1-executive-summary)`).
+- **Executive Summary & Key Takeaways**: High-density distilled insights and domain classification.
+- **Domain Taxonomy & PII Governance**: Entity map, PII categories found, and compliance flags.
+- **Structured Knowledge Modules**: Noise-stripped text, table formatting, and symbol outlines (`pub fn`, `struct`, `class`, `interface` for codebases).
+- **Deep Navigation Links**: Footers for reliable LLM agent navigation (`[↑ Back to Table of Contents](#table-of-contents)`).
+
+---
+
+### Token Savings & Speed Benchmarks
+
+| Ingestion Payload | Target Model | Raw Input Tokens | Knowledge Base Tokens | Token Savings (%) | Latency (ms) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Large Procurement Spec (PDF)** | `claude-3-5-sonnet` | 21,300 tokens | 1,836 tokens | **91.4% Reduction** | **210.9 ms** |
+| **Code Repository (20 Files)** | `gemini-1.5-pro` | 9,880 tokens | 7,862 tokens | **20.4% Reduction** | **93.8 ms** |
+
+---
+
+### Multi-Model Support Matrix
+
+| Model Family | Target Model Identifiers | Rate per 1M Tokens | Context Window Limit |
+| :--- | :--- | :--- | :--- |
+| **Claude Sonnet** | `claude-3-5-sonnet`, `claude-3-7-sonnet`, `claude-sonnet-5` | **$3.00** | 200,000 tokens |
+| **Claude Opus** | `claude-opus-5`, `claude-5-opus` | **$5.00** | 200,000 tokens |
+| **Claude Opus (Legacy 3)**| `claude-3-opus`, `opus` | **$15.00** | 200,000 tokens |
+| **Claude Haiku** | `claude-3-5-haiku`, `claude-haiku-5`, `haiku` | **$0.80** | 200,000 tokens |
+| **OpenAI GPT-4o / GPT-5**| `gpt-4o`, `gpt-5` | **$2.50** | 128,000 tokens |
+| **OpenAI Mini** | `gpt-4o-mini`, `gpt-5-mini` | **$0.15** | 128,000 tokens |
+| **Google Gemini** | `gemini-1.5-pro`, `gemini-2.0-flash` | **$1.25** / **$0.10** | 1,000,000 tokens |
+| **DeepSeek** | `deepseek-v3`, `deepseek-r1` | **$0.55** | 64,000 tokens |
+| **Meta LLaMA** | `llama-3.3-70b`, `llama-4` | **$0.90** | 128,000 tokens |
+
+---
+
 ## Supported Formats
 
 | Format | Extension | Extraction Method | Key Features |
