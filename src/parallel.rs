@@ -203,7 +203,7 @@ pub fn execute_single_task(task: &ToolTask, config: &AnalysisConfig) -> ToolTask
 
             let target_model = task.target_model.as_deref().unwrap_or("claude-3-5-sonnet");
             let tokens = get_token_count(&text, &config.bpe, &config.tokenizer_name);
-            let rate = super::kb::get_model_rate(target_model);
+            let rate = super::kb::get_model_rate(target_model, config);
             let cost = ((tokens as f64) / 1_000_000.0) * rate;
 
             ToolTaskResult {

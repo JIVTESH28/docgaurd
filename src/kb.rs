@@ -11,41 +11,23 @@ use super::pii::detect_pii;
 use super::recommendations::get_token_count;
 use super::batch::AnalysisConfig;
 
-pub fn get_model_rate(model_name: &str) -> f64 {
+pub fn get_model_rate(model_name: &str, config: &AnalysisConfig) -> f64 {
     let lower = model_name.to_lowercase();
-    if lower.contains("gpt-6") {
-        3.50
-    } else if lower.contains("opus-5") || lower.contains("opus 5") || lower.contains("claude-5-opus") {
-        5.00
-    } else if lower.contains("opus") {
-        15.00
-    } else if lower.contains("fable-5") || lower.contains("fable") {
-        1.20
-    } else if lower.contains("haiku-5") || lower.contains("claude-5-haiku") {
-        0.60
-    } else if lower.contains("haiku") {
-        0.80
-    } else if lower.contains("sonnet-5") || lower.contains("claude-5-sonnet") || lower.contains("claude-5") {
-        3.00
-    } else if lower.contains("sonnet") || lower.contains("claude") {
-        3.00
-    } else if lower.contains("gpt-5-mini") || lower.contains("gpt-4o-mini") {
-        0.15
-    } else if lower.contains("gpt-5") {
-        2.00
-    } else if lower.contains("gpt-4o") || lower.contains("gpt-4") {
-        2.50
-    } else if lower.contains("gemini-2") || lower.contains("flash") {
-        0.10
-    } else if lower.contains("gemini") {
-        1.25
-    } else if lower.contains("deepseek") {
-        0.55
-    } else if lower.contains("llama-4") || lower.contains("llama") {
-        0.80
-    } else {
-        3.00
+    
+    // 1. Exact match in dynamic registry
+    if let Some(&rate) = config.model_rates.get(&lower) {
+        return rate;
     }
+
+    // 2. Substring match against any registered keys in user registry
+    for (key, &rate) in &config.model_rates {
+        if lower.contains(key.as_str()) {
+            return rate;
+        }
+    }
+
+    // 3. Fully dynamic fallback to user's configured default rate
+    config.llm_input_rate_per_million
 }
 
 pub fn slugify(text: &str) -> String {
@@ -449,7 +431,7 @@ pub fn convert_single_to_kb_with_mode(
         0.0
     };
 
-    let model_rate = get_model_rate(target_model);
+    let model_rate = get_model_rate(target_model, config);
     let estimated_raw_cost_usd = ((raw_tokens as f64) / 1_000_000.0) * model_rate;
     let estimated_kb_cost_usd = ((kb_tokens as f64) / 1_000_000.0) * model_rate;
     let cost_savings_usd = estimated_raw_cost_usd - estimated_kb_cost_usd;
@@ -650,7 +632,7 @@ pub fn convert_directory_to_kb_with_mode(
         0.0
     };
 
-    let model_rate = get_model_rate(target_model);
+    let model_rate = get_model_rate(target_model, config);
     let estimated_raw_cost_usd = ((total_raw_tokens as f64) / 1_000_000.0) * model_rate;
     let estimated_kb_cost_usd = ((total_kb_tokens as f64) / 1_000_000.0) * model_rate;
     let cost_savings_usd = estimated_raw_cost_usd - estimated_kb_cost_usd;

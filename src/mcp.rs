@@ -305,7 +305,7 @@ pub fn handle_json_rpc_message(msg: &Value, config: &AnalysisConfig) -> Option<V
                     },
                     "serverInfo": {
                         "name": "docarmor-mcp",
-                        "version": "0.3.0"
+                        "version": "0.3.1"
                     }
                 }
             }))

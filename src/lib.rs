@@ -54,6 +54,13 @@ impl DocumentAnalyzer {
                         analysis_config.max_file_size = sz;
                     }
                 }
+                if let Some(rates) = cfg.get("model_rates") {
+                    if let Ok(rates_map) = rates.extract::<HashMap<String, f64>>(py) {
+                        for (k, v) in rates_map {
+                            analysis_config.model_rates.insert(k.to_lowercase(), v);
+                        }
+                    }
+                }
             });
         }
 
@@ -232,6 +239,21 @@ impl DocumentAnalyzer {
             }
             None => Ok(None)
         }
+    }
+
+    // Dynamic Model Registry APIs
+    #[pyo3(signature = (model_name, rate))]
+    fn set_model_rate(&mut self, model_name: String, rate: f64) {
+        self.config.model_rates.insert(model_name.to_lowercase(), rate);
+    }
+
+    #[pyo3(signature = (model_name))]
+    fn get_model_rate(&self, model_name: String) -> f64 {
+        kb::get_model_rate(&model_name, &self.config)
+    }
+
+    fn list_model_rates(&self) -> HashMap<String, f64> {
+        self.config.model_rates.clone()
     }
 
     #[pyo3(signature = (text, entities = None))]

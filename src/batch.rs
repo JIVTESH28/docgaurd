@@ -15,6 +15,7 @@ use super::recommendations::generate_recommendations;
 use std::sync::Arc;
 use tiktoken_rs::CoreBPE;
 
+#[derive(Clone)]
 pub struct AnalysisConfig {
     pub target_model: String,
     pub tokenizer_name: String,
@@ -22,18 +23,51 @@ pub struct AnalysisConfig {
     pub llm_input_rate_per_million: f64,
     pub max_file_size: usize,
     pub bpe: Option<Arc<CoreBPE>>,
+    pub model_rates: HashMap<String, f64>,
+    pub custom_domains: Vec<(String, String, Vec<String>)>,
 }
 
 impl Default for AnalysisConfig {
     fn default() -> Self {
         let bpe = tiktoken_rs::cl100k_base().ok().map(Arc::new);
+        
+        // Populate default registry of frontier model pricing (per 1M input tokens)
+        let mut model_rates = HashMap::new();
+        model_rates.insert("gpt-6".to_string(), 3.50);
+        model_rates.insert("gpt-5".to_string(), 2.00);
+        model_rates.insert("gpt-5-mini".to_string(), 0.15);
+        model_rates.insert("gpt-4o".to_string(), 2.50);
+        model_rates.insert("gpt-4o-mini".to_string(), 0.15);
+        model_rates.insert("gpt-4".to_string(), 2.50);
+        model_rates.insert("claude-5-opus".to_string(), 5.00);
+        model_rates.insert("opus-5".to_string(), 5.00);
+        model_rates.insert("claude-5-sonnet".to_string(), 3.00);
+        model_rates.insert("sonnet-5".to_string(), 3.00);
+        model_rates.insert("claude-3-7-sonnet".to_string(), 3.00);
+        model_rates.insert("claude-3-5-sonnet".to_string(), 3.00);
+        model_rates.insert("claude-fable-5.1".to_string(), 1.20);
+        model_rates.insert("fable-5.1".to_string(), 1.20);
+        model_rates.insert("fable".to_string(), 1.20);
+        model_rates.insert("claude-5-haiku".to_string(), 0.60);
+        model_rates.insert("haiku-5".to_string(), 0.60);
+        model_rates.insert("claude-3-5-haiku".to_string(), 0.80);
+        model_rates.insert("gemini-2.5-pro".to_string(), 1.25);
+        model_rates.insert("gemini-2.0-flash".to_string(), 0.10);
+        model_rates.insert("gemini-1.5-pro".to_string(), 1.25);
+        model_rates.insert("deepseek-r1".to_string(), 0.55);
+        model_rates.insert("deepseek-v3".to_string(), 0.55);
+        model_rates.insert("llama-4".to_string(), 0.80);
+        model_rates.insert("llama-3.3".to_string(), 0.90);
+
         AnalysisConfig {
             target_model: "gpt-4".to_string(),
             tokenizer_name: "cl100k_base".to_string(),
             embedding_rate_per_million: 0.02,
-            llm_input_rate_per_million: 5.00,
+            llm_input_rate_per_million: 3.00,
             max_file_size: 50 * 1024 * 1024, // 50MB default limit
             bpe,
+            model_rates,
+            custom_domains: Vec::new(),
         }
     }
 }

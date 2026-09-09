@@ -14,12 +14,25 @@ def _get_default_analyzer() -> DocumentAnalyzer:
         _default_analyzer = DocumentAnalyzer()
     return _default_analyzer
 
+def set_model_rate(model_name: str, rate_per_million: float) -> None:
+    """Dynamically register or update pricing (USD per 1M input tokens) for any model name."""
+    _get_default_analyzer().set_model_rate(model_name, rate_per_million)
+
+def get_model_rate(model_name: str) -> float:
+    """Retrieve the current dynamic rate per 1M input tokens for a given model."""
+    return _get_default_analyzer().get_model_rate(model_name)
+
+def list_model_rates() -> Dict[str, float]:
+    """List all registered dynamic model pricing rates."""
+    return _get_default_analyzer().list_model_rates()
+
 def convert_to_kb(
     target: Union[str, bytes],
     file_name: Optional[str] = None,
     target_model: str = "claude-3-5-sonnet",
     recursive: bool = True,
-    mode: str = "full"
+    mode: str = "full",
+    rate: Optional[float] = None
 ) -> Dict[str, Any]:
     """
     Converts a file path, raw bytes buffer, or project directory into a structured
@@ -28,14 +41,18 @@ def convert_to_kb(
     Args:
         target: Path to file (str), path to directory (str), or bytes buffer.
         file_name: Optional file name if target is bytes buffer.
-        target_model: Target LLM model profile (default: "claude-3-5-sonnet").
+        target_model: Target LLM model profile (e.g. 'claude-5-sonnet', 'gpt-6', 'custom-llm').
         recursive: Whether to recursively process directories (default: True).
         mode: KB detail mode: 'full' (complete content), 'compact' (deduplicated), or 'outline' (headings/signatures).
+        rate: Optional custom rate in USD per 1M tokens for dynamic cost calculation.
         
     Returns:
         Dict containing "markdown" content string and "telemetry" metadata dict.
     """
     analyzer = _get_default_analyzer()
+    if rate is not None:
+        analyzer.set_model_rate(target_model, float(rate))
+
     if isinstance(target, bytes):
         name = file_name or "document.txt"
         res_str = analyzer.convert_bytes_to_kb(target, name, target_model, mode)
@@ -58,4 +75,7 @@ __all__ = [
     "run_mcp_server",
     "convert_to_kb",
     "to_knowledge_base",
+    "set_model_rate",
+    "get_model_rate",
+    "list_model_rates",
 ]
