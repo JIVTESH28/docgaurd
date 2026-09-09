@@ -67,6 +67,28 @@ def convert_to_kb(
 
 to_knowledge_base = convert_to_kb
 
+from . import integrations
+from .integrations import (
+    get_tools,
+    get_tool,
+    register_tool,
+    to_openai_tools,
+    to_anthropic_tools,
+    to_mcp_tools,
+    to_langchain_tools,
+    get_langchain_tools,
+    get_langchain_tool,
+    to_crewai_tools,
+    get_crewai_tools,
+    get_crewai_tool,
+    to_llamaindex_tools,
+    get_llamaindex_tools,
+    get_llamaindex_tool,
+    register_with_autogen,
+    UniversalToolAdapter,
+    UniversalToolRegistry,
+)
+
 __all__ = [
     "DocumentAnalyzer",
     "OcrDocumentAnalyzer",
@@ -78,4 +100,23 @@ __all__ = [
     "set_model_rate",
     "get_model_rate",
     "list_model_rates",
+    "integrations",
+    "get_tools",
+    "get_tool",
+    "register_tool",
+    "to_openai_tools",
+    "to_anthropic_tools",
+    "to_mcp_tools",
+    "to_langchain_tools",
+    "get_langchain_tools",
+    "get_langchain_tool",
+    "to_crewai_tools",
+    "get_crewai_tools",
+    "get_crewai_tool",
+    "to_llamaindex_tools",
+    "get_llamaindex_tools",
+    "get_llamaindex_tool",
+    "register_with_autogen",
+    "UniversalToolAdapter",
+    "UniversalToolRegistry",
 ]

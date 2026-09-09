@@ -10,7 +10,7 @@ DocArmor (Document Intelligence Gateway) is a high-performance document validati
 
 ---
 
-### Features • Concurrency Breakthrough • Installation • Quick Start • Python API • MCP Server • Telemetry Schema • Benchmarks • License
+### Features • Concurrency Breakthrough • Installation • Quick Start • Python API • Universal Integrations • MCP Server • Telemetry Schema • Benchmarks • License
 
 ---
 
@@ -18,6 +18,7 @@ DocArmor (Document Intelligence Gateway) is a high-performance document validati
 
 *   **🧠 Pre-Ingestion Knowledge Base Engine (v0.3.0)** - Zero-truncation document-to-markdown converter with state-aware code block protection, nested hierarchical Table of Contents (TOC), CommonMark/GitHub anchor navigation, and configurable detail modes (`full`, `compact`, `outline`).
 *   **⚡ High-Speed Rayon Concurrency Layer** - Bypasses Python's Global Interpreter Lock (GIL) via `py.allow_threads` to execute heterogeneous agent tools, document validations, and PII scrubbing concurrently across all CPU cores at **104,000+ ops/sec (160x faster than Python GIL)**.
+*   **🤖 Universal Agent Framework Integration (v0.3.2)** - Rust-backed universal tool adapters that dynamically export to **LangChain / LangGraph, CrewAI, AutoGen, LlamaIndex, OpenAI Function Calling, Anthropic Tool Use, and MCP** with zero hardcoding and zero mandatory framework dependencies.
 *   **🔌 Native Rust Model Context Protocol (MCP) Server** - Built-in high-performance stdio MCP server (`python -m docarmor.mcp` or `docarmor-mcp`) with **22µs response latency**, giving Claude Desktop, Cursor, Antigravity, and AI agents instant tool access.
 *   **📉 Multi-Model Token Reduction Telemetry** - Achieves up to **60-90%+ token reduction** before passing content to LLM agents across Claude 3.5/3.7, GPT-4o, Gemini 1.5/2.0, LLaMA 3, and DeepSeek R1/V3.
 *   **🌐 "One Brain" Project Repository Ingestion** - Recursively aggregates full multi-file codebases or directory trees into a single structured project Knowledge Base with file tree indexes and module breakdowns.
@@ -366,7 +367,112 @@ Add DocArmor to your `claude_desktop_config.json` or Cursor MCP settings:
 5. `docarmor_repo_digest`: Multi-file repository aggregator ("one brain").
 6. `docarmor_parallel_tools`: Concurrent multi-tool batch execution over Rayon.
 
-### 🏆 Real-World SWE-Bench & Autonomous Codebase Benchmark
+---
+
+## 🤖 Universal Agent Framework Integration Layer (Rust-Powered)
+
+DocArmor provides a **native, dynamic integration layer** that allows all DocArmor tools (and custom registered tools) to be consumed universally across:
+- **LangChain & LangGraph** (`to_langchain_tools()`, `get_langchain_tool()`)
+- **CrewAI** (`to_crewai_tools()`, `get_crewai_tool()`)
+- **Microsoft AutoGen** (`register_with_autogen(agent)`)
+- **LlamaIndex** (`to_llamaindex_tools()`, `get_llamaindex_tool()`)
+- **OpenAI Function Calling** (`to_openai_tools()`)
+- **Anthropic Tool Use** (`to_anthropic_tools()`)
+- **Model Context Protocol** (`to_mcp_tools()`)
+
+### Zero Mandatory Dependencies & Dynamic Duck-Typing
+DocArmor **does not force you to install heavy agent dependencies**:
+- If `langchain_core` or `crewai` is installed in your virtual environment, DocArmor dynamically exports native `StructuredTool` or `BaseTool` instances.
+- In minimal environments, DocArmor returns universal duck-typed tool adapters implementing the full protocol (including `.name`, `.description`, `.args_schema`, `.run()`, `._run()`, and `.invoke()`).
+
+### LangChain / LangGraph
+```python
+from langchain_openai import ChatOpenAI
+import docarmor
+
+# Retrieve tools as native LangChain StructuredTool instances
+tools = docarmor.to_langchain_tools()
+
+# Bind directly to any LangChain LLM or LangGraph ToolNode
+llm = ChatOpenAI(model="gpt-4o").bind_tools(tools)
+```
+
+### CrewAI
+```python
+from crewai import Agent
+import docarmor
+
+# Pass directly to CrewAI agents
+analyst = Agent(
+    role="Document Security Analyst",
+    goal="Inspect incoming enterprise documents for PII and security risks",
+    backstory="Autonomous security agent backed by native Rust execution",
+    tools=docarmor.to_crewai_tools(),
+)
+```
+
+### Microsoft AutoGen
+```python
+from autogen import AssistantAgent, UserProxyAgent
+import docarmor
+
+assistant = AssistantAgent("assistant", llm_config={"config_list": [...]})
+user_proxy = UserProxyAgent("user_proxy", code_execution_config=False)
+
+# Registers all tools with AutoGen in a single dynamic call
+docarmor.register_with_autogen(caller=assistant, executor=user_proxy)
+```
+
+### LlamaIndex
+```python
+from llama_index.core.agent import ReActAgent
+from llama_index.llms.openai import OpenAI
+import docarmor
+
+agent = ReActAgent.from_tools(
+    tools=docarmor.to_llamaindex_tools(),
+    llm=OpenAI(model="gpt-4o"),
+    verbose=True,
+)
+```
+
+### Direct OpenAI & Anthropic Tool Schemas
+```python
+import openai, anthropic
+import docarmor
+
+# Export ready-to-use schemas dynamically from Rust
+openai_tools = docarmor.to_openai_tools()
+anthropic_tools = docarmor.to_anthropic_tools()
+
+# Pass directly to the OpenAI client
+# response = client.chat.completions.create(model="gpt-4o", messages=[...], tools=openai_tools)
+```
+
+### Dynamic Custom Tool Registration (Rust Core)
+Register custom tools into DocArmor at runtime with instant multi-framework export:
+```python
+import docarmor
+
+def custom_verifier(query: str) -> dict:
+    return {"verified": True, "details": "Custom logic"}
+
+docarmor.register_tool(
+    name="custom_verifier",
+    description="Validates compliance policies",
+    parameters={
+        "type": "object",
+        "properties": {"query": {"type": "string"}},
+        "required": ["query"],
+    },
+    handler=custom_verifier,
+)
+
+# Immediately available in all framework exporters!
+assert any(t["function"]["name"] == "custom_verifier" for t in docarmor.to_openai_tools())
+```
+
+---
 
 Benchmark evaluating full multi-module repository ingestion across autonomous software engineering agent profiles (17 source code modules, 33,929 raw codebase tokens) using DocArmor's "One Brain" Rayon-parallel ingestion engine:
 

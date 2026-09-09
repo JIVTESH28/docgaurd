@@ -12,12 +12,14 @@ pub mod pii;
 pub mod kb;
 pub mod parallel;
 pub mod mcp;
+pub mod universal;
 
 use batch::{AnalysisConfig, analyze_single_document, analyze_batch_files, calculate_sha256};
 
 #[pyclass]
 pub struct DocumentAnalyzer {
     config: AnalysisConfig,
+    registry: universal::UniversalToolRegistry,
 }
 
 #[pymethods]
@@ -66,6 +68,7 @@ impl DocumentAnalyzer {
 
         DocumentAnalyzer {
             config: analysis_config,
+            registry: universal::UniversalToolRegistry::new(),
         }
     }
 
@@ -254,6 +257,51 @@ impl DocumentAnalyzer {
 
     fn list_model_rates(&self) -> HashMap<String, f64> {
         self.config.model_rates.clone()
+    }
+
+    #[pyo3(signature = (format = None))]
+    fn get_tool_definitions(&self, format: Option<String>) -> PyResult<String> {
+        let fmt = format.unwrap_or_else(|| "openai".to_string());
+        let schemas = self.registry.export_schemas(&fmt);
+        serde_json::to_string(&schemas)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    fn list_tools(&self) -> Vec<String> {
+        self.registry.list_names()
+    }
+
+    fn execute_tool(
+        &self,
+        py: Python<'_>,
+        name: String,
+        arguments_json: String,
+    ) -> PyResult<String> {
+        let args: serde_json::Value = serde_json::from_str(&arguments_json)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid arguments JSON: {}", e)))?;
+
+        let res = py.allow_threads(|| {
+            self.registry.execute(&name, &args, &self.config)
+        });
+
+        match res {
+            Ok(val) => serde_json::to_string(&val)
+                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string())),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(e)),
+        }
+    }
+
+    fn register_tool(
+        &mut self,
+        name: String,
+        description: String,
+        parameters_json: String,
+    ) -> PyResult<()> {
+        let params: serde_json::Value = serde_json::from_str(&parameters_json)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid schema JSON: {}", e)))?;
+        let tool = universal::UniversalToolDefinition::new(name, description, params);
+        self.registry.register(tool);
+        Ok(())
     }
 
     #[pyo3(signature = (text, entities = None))]
