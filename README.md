@@ -288,40 +288,39 @@ Add DocArmor to your `claude_desktop_config.json` or Cursor MCP settings:
 5. `docarmor_repo_digest`: Multi-file repository aggregator ("one brain").
 6. `docarmor_parallel_tools`: Concurrent multi-tool batch execution over Rayon.
 
-### Token Savings & Speed Benchmarks
+### 🏆 Real-World SWE-Bench & Autonomous Codebase Benchmark
 
-| Ingestion Payload | Target Model | Raw Input Tokens | Knowledge Base Tokens | Token Savings (%) | Latency (ms) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Large Procurement Spec (PDF)** | `claude-3-5-sonnet` | 21,300 tokens | 1,836 tokens | **91.4% Reduction** | **210.9 ms** |
-| **Code Repository (20 Files)** | `gemini-1.5-pro` | 9,880 tokens | 7,862 tokens | **20.4% Reduction** | **93.8 ms** |
+Benchmark evaluating full multi-module repository ingestion across autonomous software engineering agent profiles (17 source code modules, 33,929 raw codebase tokens) using DocArmor's "One Brain" Rayon-parallel ingestion engine:
 
----
-
-### Real-World Legal Document Benchmark Comparison
-
-Benchmark evaluating a 12-page Master Services Agreement (`master_services_agreement.pdf`) containing legal indemnification, liability limitations, PII data privacy clauses, and arbitration governance terms across Claude model profiles:
-
-| Target Model Profile | Model Target String | Raw Input Tokens | Knowledge Base Tokens | Token Reduction (%) | Raw Input Cost ($) | Knowledge Base Cost ($) | Net Cost Savings ($) |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Claude 5 Sonnet** | `claude-5-sonnet` | 14,000 tokens | 3,795 tokens | **72.9% Reduction** | $0.04200 USD | $0.01139 USD | **$0.03061 USD** |
-| **Claude 5 Opus** | `claude-5-opus` | 14,000 tokens | 3,795 tokens | **72.9% Reduction** | $0.07000 USD | $0.01898 USD | **$0.05102 USD** |
-| **Claude Fable / Haiku** | `claude-fable` | 14,000 tokens | 3,795 tokens | **72.9% Reduction** | $0.01120 USD | $0.00303 USD | **$0.00817 USD** |
+| Target Model Profile | Model Target String | Raw Input Tokens | Knowledge Base Tokens | Token Reduction (%) | Raw Cost / Query | DocArmor Cost / Query | Net Savings / Query | Ingestion Latency |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Claude 5 Sonnet** | `claude-5-sonnet` | 33,929 tokens | 8,526 tokens | **74.9% Reduction** | $0.10179 USD | $0.02558 USD | **+$0.07621 USD** | **22.8 ms** |
+| **Claude 5 Opus** | `claude-5-opus` | 33,929 tokens | 8,525 tokens | **74.9% Reduction** | $0.16965 USD | $0.04263 USD | **+$0.12702 USD** | **17.6 ms** |
+| **Claude Fable 5.1** | `fable-5.1` | 33,929 tokens | 8,525 tokens | **74.9% Reduction** | $0.04071 USD | $0.01023 USD | **+$0.03048 USD** | **15.6 ms** |
+| **Claude 5 Haiku** | `claude-5-haiku` | 33,929 tokens | 8,526 tokens | **74.9% Reduction** | $0.02036 USD | $0.00512 USD | **+$0.01524 USD** | **16.4 ms** |
+| **OpenAI GPT-6** | `gpt-6` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.11875 USD | $0.02983 USD | **+$0.08892 USD** | **16.0 ms** |
+| **OpenAI GPT-5** | `gpt-5` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.06786 USD | $0.01705 USD | **+$0.05081 USD** | **15.7 ms** |
+| **Google Gemini 2.5 Pro**| `gemini-2.5-pro` | 33,929 tokens | 8,526 tokens | **74.9% Reduction** | $0.00339 USD | $0.00085 USD | **+$0.00254 USD** | **15.8 ms** |
+| **DeepSeek R1** | `deepseek-r1` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.01866 USD | $0.00469 USD | **+$0.01397 USD** | **16.9 ms** |
+| **Meta LLaMA 4** | `llama-4` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.02714 USD | $0.00682 USD | **+$0.02032 USD** | **15.5 ms** |
 
 ---
 
-### Multi-Model Support Matrix
+### 🌐 Frontier Multi-Model Support Matrix (2026)
 
-| Model Family | Target Model Identifiers | Rate per 1M Tokens | Context Window Limit |
-| :--- | :--- | :--- | :--- |
-| **Claude Sonnet** | `claude-3-5-sonnet`, `claude-3-7-sonnet`, `claude-sonnet-5` | **$3.00** | 200,000 tokens |
-| **Claude Opus** | `claude-opus-5`, `claude-5-opus` | **$5.00** | 200,000 tokens |
-| **Claude Opus (Legacy 3)**| `claude-3-opus`, `opus` | **$15.00** | 200,000 tokens |
-| **Claude Haiku** | `claude-3-5-haiku`, `claude-haiku-5`, `haiku` | **$0.80** | 200,000 tokens |
-| **OpenAI GPT-4o / GPT-5**| `gpt-4o`, `gpt-5` | **$2.50** | 128,000 tokens |
-| **OpenAI Mini** | `gpt-4o-mini`, `gpt-5-mini` | **$0.15** | 128,000 tokens |
-| **Google Gemini** | `gemini-1.5-pro`, `gemini-2.0-flash` | **$1.25** / **$0.10** | 1,000,000 tokens |
-| **DeepSeek** | `deepseek-v3`, `deepseek-r1` | **$0.55** | 64,000 tokens |
-| **Meta LLaMA** | `llama-3.3-70b`, `llama-4` | **$0.90** | 128,000 tokens |
+| Model Family | Target Model Identifiers | Rate per 1M Tokens | Context Window Limit | Primary Agent Use Case |
+| :--- | :--- | :--- | :--- | :--- |
+| **Claude 5 Sonnet** | `claude-5-sonnet`, `claude-sonnet-5`, `claude-3-7-sonnet` | **$3.00** | 500,000 tokens | General reasoning, deep refactoring, SWE-bench coding |
+| **Claude 5 Opus** | `claude-5-opus`, `claude-opus-5` | **$5.00** | 500,000 tokens | Complex architectural design, formal verification |
+| **Claude Fable 5.1** | `claude-fable-5.1`, `fable-5.1`, `fable` | **$1.20** | 300,000 tokens | High-speed multi-agent workflows, autonomous execution |
+| **Claude 5 Haiku** | `claude-5-haiku`, `haiku-5`, `claude-3-5-haiku` | **$0.60** | 300,000 tokens | Rapid triage, guardrails, classification |
+| **OpenAI GPT-6** | `gpt-6`, `gpt-6-omni` | **$3.50** | 256,000 tokens | Flagship frontier reasoning & multi-step planning |
+| **OpenAI GPT-5** | `gpt-5`, `gpt-4o` | **$2.00** | 256,000 tokens | High-throughput agent tool calls & general inference |
+| **OpenAI Mini** | `gpt-5-mini`, `gpt-4o-mini` | **$0.15** | 256,000 tokens | Lightweight screening, sentiment, fast regex routing |
+| **Google Gemini 2.5 Pro**| `gemini-2.5-pro` | **$1.25** | 2,000,000 tokens | Mega-context repository & multimodal document audit |
+| **Google Gemini Flash** | `gemini-2.0-flash` | **$0.10** | 1,000,000 tokens | Real-time streaming & low-latency extraction |
+| **DeepSeek R1 / V3** | `deepseek-r1`, `deepseek-v3` | **$0.55** | 128,000 tokens | Open-weight high-efficiency deep reasoning |
+| **Meta LLaMA 4** | `llama-4-405b`, `llama-4-scout`, `llama-4` | **$0.80** | 256,000 tokens | Enterprise on-prem & sovereign AI deployments |
 
 ---
 

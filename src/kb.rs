@@ -13,17 +13,27 @@ use super::batch::AnalysisConfig;
 
 pub fn get_model_rate(model_name: &str) -> f64 {
     let lower = model_name.to_lowercase();
-    if lower.contains("opus-5") || lower.contains("opus 5") || lower.contains("claude-5-opus") {
+    if lower.contains("gpt-6") {
+        3.50
+    } else if lower.contains("opus-5") || lower.contains("opus 5") || lower.contains("claude-5-opus") {
         5.00
     } else if lower.contains("opus") {
         15.00
+    } else if lower.contains("fable-5") || lower.contains("fable") {
+        1.20
+    } else if lower.contains("haiku-5") || lower.contains("claude-5-haiku") {
+        0.60
     } else if lower.contains("haiku") {
         0.80
+    } else if lower.contains("sonnet-5") || lower.contains("claude-5-sonnet") || lower.contains("claude-5") {
+        3.00
     } else if lower.contains("sonnet") || lower.contains("claude") {
         3.00
-    } else if lower.contains("gpt-4o-mini") || lower.contains("gpt-5-mini") {
+    } else if lower.contains("gpt-5-mini") || lower.contains("gpt-4o-mini") {
         0.15
-    } else if lower.contains("gpt-5") || lower.contains("gpt-4o") || lower.contains("gpt-4") {
+    } else if lower.contains("gpt-5") {
+        2.00
+    } else if lower.contains("gpt-4o") || lower.contains("gpt-4") {
         2.50
     } else if lower.contains("gemini-2") || lower.contains("flash") {
         0.10
@@ -31,8 +41,8 @@ pub fn get_model_rate(model_name: &str) -> f64 {
         1.25
     } else if lower.contains("deepseek") {
         0.55
-    } else if lower.contains("llama") {
-        0.90
+    } else if lower.contains("llama-4") || lower.contains("llama") {
+        0.80
     } else {
         3.00
     }
