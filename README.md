@@ -1,662 +1,319 @@
-# DocArmor (Document Intelligence Gateway)
+# DocArmor
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![PyPI version](https://badge.fury.io/py/docarmor.svg)](https://badge.fury.io/py/docarmor)
+**Parallel AI Ingestion & Tool Execution Layer for LLM Systems**
 
-DocArmor (Document Intelligence Gateway) is a high-performance document validation, security scanning, quality guardrail, and exact token counting engine. Built in Rust with native Python bindings via PyO3, DocArmor sits between raw document ingestion and downstream LLM/RAG pipelines to prevent system exploitation, database bloat, and unexpected API costs.
+DocArmor is a high-performance, Rust-powered engine that **validates, secures, analyzes, and executes document workflows before they reach your LLM or agent system**.
 
-> ⚡ **The Concurrency Breakthrough**: Python's Global Interpreter Lock (GIL) fundamentally bottlenecks multi-agent frameworks (LangChain, CrewAI, AutoGen) during parallel tool calls, document scanning, and guardrail validation. DocArmor shatters this limit: by releasing the GIL via `py.allow_threads` and delegating heterogeneous tool execution to a bare-metal **Rust Rayon work-stealing thread pool**, DocArmor achieves **104,000+ operations/second** and **160.4x faster execution** across 100% of available CPU cores.
+It acts as a **pre-LLM firewall + execution runtime**, enabling safe, cost-efficient, and parallel AI pipelines.
 
 ---
 
-### Features • Concurrency Breakthrough • Installation • Quick Start • Python API • Universal Integrations • MCP Server • Telemetry Schema • Benchmarks • License
+## 🚀 Why DocArmor?
+
+Modern AI systems fail at the first step:
+
+* ❌ Sending raw, unvalidated data to LLMs
+* ❌ Unknown token cost until API call
+* ❌ No PII protection
+* ❌ Sequential tool execution (slow agents)
+
+DocArmor fixes this by introducing a **control layer before AI execution**.
+
+> **Protect, optimize, and execute AI workflows before they reach your LLM.**
 
 ---
 
-## Features
+## 🧠 Core Architecture
 
-*   **🧠 Pre-Ingestion Knowledge Base Engine (v0.3.0)** - Zero-truncation document-to-markdown converter with state-aware code block protection, nested hierarchical Table of Contents (TOC), CommonMark/GitHub anchor navigation, and configurable detail modes (`full`, `compact`, `outline`).
-*   **⚡ High-Speed Rayon Concurrency Layer** - Bypasses Python's Global Interpreter Lock (GIL) via `py.allow_threads` to execute heterogeneous agent tools, document validations, and PII scrubbing concurrently across all CPU cores at **104,000+ ops/sec (160x faster than Python GIL)**.
-*   **🤖 Universal Agent Framework Integration (v0.3.2)** - Rust-backed universal tool adapters that dynamically export to **LangChain / LangGraph, CrewAI, AutoGen, LlamaIndex, OpenAI Function Calling, Anthropic Tool Use, and MCP** with zero hardcoding and zero mandatory framework dependencies.
-*   **🔌 Native Rust Model Context Protocol (MCP) Server** - Built-in high-performance stdio MCP server (`python -m docarmor.mcp` or `docarmor-mcp`) with **22µs response latency**, giving Claude Desktop, Cursor, Antigravity, and AI agents instant tool access.
-*   **📉 Multi-Model Token Reduction Telemetry** - Achieves up to **60-90%+ token reduction** before passing content to LLM agents across Claude 3.5/3.7, GPT-4o, Gemini 1.5/2.0, LLaMA 3, and DeepSeek R1/V3.
-*   **🌐 "One Brain" Project Repository Ingestion** - Recursively aggregates full multi-file codebases or directory trees into a single structured project Knowledge Base with file tree indexes and module breakdowns.
-*   **✨ Real GPT Tokenization** - Integrates high-performance `tiktoken-rs` in Rust to calculate exact GPT token budgets (not approximations) for models like GPT-4, GPT-3.5, Claude, or LLaMA.
-*   **⚡ Multi-Format Support** - Seamlessly extracts text and parses metadata from PDF, TXT, MD, DOCX, PPTX, XLSX, CSV, JSON, XML, HTML, and code files (`.py`, `.rs`, `.go`, `.js`, `.ts`, `.java`, `.cpp`, `.c`, `.sh`, `.sql`).
-*   **🛡️ Ingestion Security** - Built-in security scanners inspect compressed documents and file headers to intercept Zip bombs, compression bombs, and oversized resource limits before they reach system memory.
-*   **🔍 Text Quality & OCR Necessity Detection** - Evaluates page text density, whitespace-to-character ratio, and empty page signals to flag scanned/image-only documents (`requires_ocr`) before vector database embedding.
-*   **🚀 Native Parallel Batch Processing** - Utilizes Rust's concurrent work-stealing thread pool (`Rayon`) to process thousands of files or directory trees in parallel with zero GIL serialization.
-*   **💾 Global De-duplication** - Computes high-performance SHA-256 content hashes in parallel to identify and skip exact duplicate files inside a batch queue automatically.
-*   **💰 Dynamic Cost Estimation** - Estimates LLM input cost and vector database embedding cost dynamically before making external API requests.
-*   **🎯 Intelligent Agent Routing** - Classifies text based on heuristic token frequencies and assigns a target downstream AI Agent (e.g., `LegalAgent`, `ProcurementAgent`).
-*   **🔒 Rust-Native PII Redaction & Data Masking** - Detects and masks Personally Identifiable Information (PII) like emails, phone numbers, SSNs, IP addresses, and credit cards directly in Rust before data leaves your environment.
+```
+Raw Input (PDFs, Docs, APIs)
+        ↓
+🛡️ Security Layer (validation, zip bomb protection)
+        ↓
+📄 Parsing Layer (multi-format extraction)
+        ↓
+📊 Analysis Layer (tokens, cost, quality, PII)
+        ↓
+🧠 Decision Layer (routing, chunking, agent hints)
+        ↓
+⚡ Execution Layer (parallel tools via Rayon)
+        ↓
+🔌 MCP Interface / LangChain Integration
+        ↓
+LLM / Agent System
+```
 
 ---
 
-## Installation
+## ⚙️ Key Capabilities
 
-### From PyPI (Recommended)
-Install pre-compiled native binary wheels instantly on Windows, Linux, or macOS:
+### 🛡️ 1. LLM Ingestion Firewall
+
+* Zip bomb protection
+* File validation & corruption detection
+* Oversized document handling
+* Safe ingestion pipeline
+
+---
+
+### 💰 2. Deterministic Token & Cost Control
+
+* Exact token counting (tiktoken-rs)
+* Pre-LLM cost estimation
+* Embedding cost prediction
+
+> Know your cost **before** calling any model.
+
+---
+
+### 🔒 3. PII Detection & Masking
+
+* Emails, phone numbers, IPs, sensitive data
+* Automatic redaction before LLM exposure
+
+---
+
+### 📂 4. Multi-Format Document Processing
+
+* PDF, DOCX, XLSX, TXT, JSON, HTML
+* OCR routing (only when required)
+
+---
+
+### ⚡ 5. True Parallel Execution Engine
+
+* Rust + PyO3 (GIL released)
+* Rayon work-stealing scheduler
+* Multi-core batch processing
+
+```python
+analyzer.analyze_batch(documents)
+```
+
+✔ Real CPU parallelism
+✔ High throughput ingestion
+
+---
+
+### 🔌 6. MCP Tool Runtime (Parallel Execution)
+
+DocArmor exposes tools via **MCP (Model Context Protocol)** and enables:
+
+* Parallel tool execution
+* Batched operations
+* Structured tool responses
+
+#### Traditional Agent Flow:
+
+```
+tool → wait → tool → wait
+```
+
+#### DocArmor Flow:
+
+```
+tool graph → parallel execution → aggregated result
+```
+
+---
+
+### 📚 7. Knowledge Base (KB) Generation
+
+* Repository digestion
+* Structured knowledge extraction
+* File-level summaries & classification
+
+```python
+repo_digest(path)
+```
+
+✔ Converts raw code/docs → structured knowledge
+✔ Ready for downstream AI systems
+
+---
+
+### 🧠 8. Intelligent Routing Layer
+
+DocArmor provides:
+
+* Document classification
+* Quality scoring
+* RAG readiness detection
+* Chunking recommendations
+
+---
+
+### 📊 9. Telemetry & Observability
+
+Every document produces structured output:
+
+```json
+{
+  "token_count": 1240,
+  "estimated_cost": 0.0021,
+  "quality_score": 0.87,
+  "rag_ready": true,
+  "pii_detected": false,
+  "processing_time": 0.12
+}
+```
+
+---
+
+## 🔗 Integrations
+
+### LangChain
+
+Use DocArmor as a preprocessing layer:
+
+```text
+Documents → DocArmor → LangChain → LLM
+```
+
+---
+
+### MCP (Model Context Protocol)
+
+Run as an MCP server:
+
+```bash
+python -m docarmor.mcp
+```
+
+Allows LLMs/agents to:
+
+* call tools
+* run parallel workflows
+* process documents at scale
+
+---
+
+## ⚡ Parallel Tool Execution Example
+
+```python
+tasks = [
+    {"type": "scan", "input": doc1},
+    {"type": "redact_pii", "input": doc2},
+    {"type": "token_budget", "input": doc3},
+    {"type": "to_kb", "input": doc4}
+]
+
+results = analyzer.execute_parallel_tasks(tasks)
+```
+
+✔ Executes across multiple CPU cores
+✔ Returns aggregated structured output
+
+---
+
+## 📈 Real-World Use Cases
+
+### 1. RAG Pipeline Optimization
+
+```
+Docs → DocArmor → Vector DB
+```
+
+* Filter bad documents
+* Reduce token usage
+* Improve retrieval quality
+
+---
+
+### 2. AI SaaS Upload Pipeline
+
+```
+User Upload → DocArmor → LLM
+```
+
+* Block unsafe inputs
+* Mask PII
+* Estimate cost
+
+---
+
+### 3. Enterprise Document Processing
+
+```
+1000+ Docs → Parallel Processing → Clean Output
+```
+
+* High throughput
+* Secure ingestion
+* Structured analytics
+
+---
+
+## 🆚 What Makes DocArmor Different
+
+| Feature            | Typical Systems | DocArmor         |
+| ------------------ | --------------- | ---------------- |
+| Token counting     | Approximate     | Exact            |
+| Cost estimation    | After API call  | Before API call  |
+| PII protection     | Optional        | Built-in         |
+| Execution          | Sequential      | Parallel (Rayon) |
+| Tool orchestration | Linear          | Parallel MCP     |
+| Performance        | Python-bound    | Rust-powered     |
+
+---
+
+## 🧭 Positioning
+
+DocArmor is NOT:
+
+* ❌ a vector database
+* ❌ a full RAG framework
+* ❌ an LLM
+
+DocArmor IS:
+
+> **The control layer that ensures only safe, optimized, and structured data reaches your AI system.**
+
+---
+
+## 🚀 Installation
+
 ```bash
 pip install docarmor
 ```
-*(No Rust compilers, C-libraries, or compilation tools are required on the host system).*
-
-### From Source
-```bash
-git clone https://github.com/JIVTESH28/docarmor.git
-cd docarmor
-pip install .
-```
 
 ---
 
-## Quick Start
+## 🔥 One-Line Summary
 
-### Initialize the Analyzer
-```python
-import json
-import docarmor
-
-# Initialize the gateway analyzer with custom thresholds
-analyzer = docarmor.DocumentAnalyzer({
-    "target_model": "gpt-4",                   # Target context window check
-    "tokenizer_name": "cl100k_base",           # Tiktoken profile
-    "embedding_rate_per_million": 0.02,        # Cost per 1M tokens ($)
-    "llm_input_rate_per_million": 5.00,        # Cost per 1M tokens ($)
-    "max_file_size": 52428800                  # Max file size (50MB)
-})
-```
-
-### Python API Usage
-
-#### Single File Ingestion (Local Disk)
-```python
-report_str = analyzer.analyze_file("contract.pdf")
-report = json.loads(report_str)
-print(f"Tokens: {report['token_count']} | RAG Ready: {report['rag_ready']}")
-```
-
-#### In-Memory Bytes Ingestion (API Uploads)
-```python
-uploaded_bytes = b"Sample document text buffer."
-report_str = analyzer.analyze_bytes(uploaded_bytes, "invoice.txt")
-report = json.loads(report_str)
-print(f"Domain Class: {report['document_class']} | RAG Ready: {report['rag_ready']}")
-```
-
-#### Natively Parallel Batch Processing
-```python
-file_list = ["agreement.docx", "data.xlsx", "spec.pdf"]
-batch_report_str = analyzer.analyze_batch(file_list)
-batch_report = json.loads(batch_report_str)
-
-print(f"Successful files: {batch_report['summary']['successful_files']}")
-print(f"Duplicates skipped: {batch_report['summary']['duplicate_files']}")
-```
-
-#### Directory Ingestion (Recursive Scan)
-```python
-dir_report_str = analyzer.analyze_directory("./archive", recursive=True)
-dir_report = json.loads(dir_report_str)
-print(f"Total directory tokens: {dir_report['summary']['total_tokens']}")
-```
-
-#### 🤖 Universal Agent Framework Integrations (v0.3.2)
-Seamlessly export and use DocArmor's Rust-native security, KB, and redaction tools across all major agent frameworks:
-```python
-import docarmor
-
-# LangChain / LangGraph (native StructuredTool instances)
-lc_tools = docarmor.to_langchain_tools()
-
-# CrewAI (native BaseTool instances)
-crew_tools = docarmor.to_crewai_tools()
-
-# Microsoft AutoGen (automatic registration with ConversableAgent / AssistantAgent)
-docarmor.register_with_autogen(caller=assistant_agent, executor=user_proxy)
-
-# LlamaIndex (native FunctionTool instances)
-llama_tools = docarmor.to_llamaindex_tools()
-
-# Direct OpenAI Function Calling & Anthropic Tool Use Schemas
-openai_tools = docarmor.to_openai_tools()
-anthropic_tools = docarmor.to_anthropic_tools()
-```
-
-#### ⚡ True Parallel Agent Tool Execution (Zero GIL)
-Execute dozens or hundreds of heterogeneous tool calls concurrently in native Rust with work-stealing parallelism, bypassing Python's GIL:
-```python
-from docarmor.parallel import ParallelToolExecutor, run_parallel_tools
-
-executor = ParallelToolExecutor()
-
-# Queue heterogeneous tasks across documents
-for doc in documents:
-    executor.add_task(task_type="token_budget", content=doc, target_model="gpt-6")
-    executor.add_task(task_type="redact_pii", content=doc)
-    executor.add_task(task_type="to_kb", content=doc, mode="compact")
-
-# Dispatches to Rust Rayon with py.allow_threads (104,000+ ops/sec)
-results = executor.run()
-```
-
-#### 🧠 Knowledge Base Pre-Ingestion (.md) Conversion (v0.3.0)
-Pre-ingests bloated PDFs, documents, images, or full code repositories and converts them into hyper-compressed, linked Knowledge Base Markdown documents with token savings telemetry:
-
-```python
-# 1. Top-Level Convenience Helper (File, Directory, or Bytes)
-kb_result = docarmor.to_knowledge_base("procurement_agreement.pdf", target_model="claude-3-5-sonnet")
-
-print(kb_result["markdown"])
-print(f"Token Reduction : {kb_result['telemetry']['reduction_percentage']}%")
-print(f"Cost Savings    : ${kb_result['telemetry']['cost_savings_usd']}")
-
-# 2. Multi-File Project Repository Ingestion ("One Brain")
-project_kb = analyzer.convert_directory_to_kb("./my_project", recursive=True, target_model="gemini-1.5-pro")
-proj_data = json.loads(project_kb)
-print(f"Project Files: {proj_data['telemetry']['total_files']} | Savings: {proj_data['telemetry']['reduction_percentage']}%")
-
-# 3. Hardware-Accelerated OCR to Knowledge Base Markdown
-ocr_analyzer = docarmor.OcrDocumentAnalyzer()
-ocr_kb_str = ocr_analyzer.convert_file_to_kb("scanned_invoice.png", target_model="gpt-4o")
-```
-
-#### Ultra-Fast Single-Metric Bypasses
-If you only need a single metric and want to bypass the rest of the gateway analysis pipeline (such as security checks, cost estimation, and domain classification), use the sub-millisecond helpers:
-```python
-# Raw metric count helpers (File-based)
-word_count = analyzer.count_words("document.docx")
-char_count = analyzer.count_chars("document.docx")
-token_count = analyzer.count_tokens("document.docx")
-
-# Raw metric count helpers (Byte-based)
-token_count = analyzer.count_tokens_bytes(uploaded_bytes, "invoice.txt")
-
-# Rust-Native PII Redaction & Data Masking
-pii_text = "My email is test@example.com and phone is 123-456-7890."
-# Redact all supported categories (email, phone, ssn, ip, credit_card)
-redacted_all = analyzer.redact_pii(pii_text) # "My email is [EMAIL] and phone is [PHONE]."
-# Or redact only specific categories
-redacted_email = analyzer.redact_pii(pii_text, ["email"]) # "My email is [EMAIL] and phone is 123-456-7890."
-```
+> **DocArmor protects, optimizes, and executes AI workflows before they reach your LLM.**
 
 ---
 
-## Telemetry Output Schema
+## 📌 Future Scope
 
-DocArmor generates a comprehensive, metadata-rich telemetry report for every analyzed file:
-
-```json
-{
-  "file_name": "contract_agreement.pdf",
-  "file_type": "pdf",
-  "sha256": "07c270b274dae324f906e0aa3a8d606471931e9c1afc241ddbc8f9ae52baffe7",
-  "token_count": 2424,
-  "word_count": 1612,
-  "character_count": 11448,
-  "page_count": 4,
-  "requires_ocr": false,
-  "quality_score": 0.8,
-  "duplicate": false,
-  "security_risk": "low",
-  "fits_context": true,
-  "rag_ready": true,
-  "requires_summarization": false,
-  "recommended_chunking": "semantic chunking",
-  "document_class": "Legal",
-  "recommended_agent": "LegalAgent",
-  "contains_pii": true,
-  "pii_categories_found": ["email", "phone"],
-  "estimated_embedding_cost": 0.0,
-  "estimated_llm_cost": 0.0121,
-  "processing_time_ms": 12.34
-}
-```
-
-### Telemetry Field Descriptions
-
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `file_name` | String | Base name of the analyzed file. |
-| `file_type` | String | Lowercase file extension (e.g. `pdf`, `docx`, `txt`). |
-| `sha256` | String | Cryptographic SHA-256 hash representing the exact content payload. |
-| `token_count` | Integer | Exact token count matching the selected model tokenizer profile. |
-| `word_count` | Integer | Number of words counted based on unicode whitespace dividers. |
-| `character_count` | Integer | UTF-8 character length of the extracted document text. |
-| `page_count` | Integer | Page count (e.g. PDF pages, PowerPoint slides, Excel sheets, estimated text lines). |
-| `requires_ocr` | Boolean | Flags `true` if document has page structures but low text density (image-only scanned). |
-| `quality_score` | Float | Cleanliness index (`0.0` - `1.0`) graded by density, metadata, ratio, and OCR markers. |
-| `duplicate` | Boolean | Flags `true` if identical SHA-256 has already been processed in the concurrent batch queue. |
-| `security_risk` | String | Security score (`low`, `medium`, `high`) validating Zip bombs and size thresholds. |
-| `fits_context` | Boolean | Checks if `token_count` fits inside the target model's context window. |
-| `rag_ready` | Boolean | Evaluates suitability for search databases (`true` if secure, non-scanned, and clean). |
-| `requires_summarization` | Boolean | Recommends pre-summarizing if the token count or page density is excessively large. |
-| `recommended_chunking` | String | Suggested chunking strategy (`no chunking`, `fixed`, `semantic`, `hierarchical`, `agentic`). |
-| `document_class` | String | Classified topical domain (Finance, Procurement, Legal, HR, Tech Doc, Research, etc.). |
-| `recommended_agent` | String | Recommended target downstream AI Agent target (e.g. `LegalAgent`). |
-| `contains_pii` | Boolean | Flags `true` if document text contains common PII entities (email, phone, SSN, IP, credit card). |
-| `pii_categories_found` | List | Names of PII categories found in the document (e.g., `["email", "phone"]`). |
-| `estimated_embedding_cost`| Float | Predicted vector database indexing cost. |
-| `estimated_llm_cost` | Float | Predicted input processing cost. |
-| `processing_time_ms` | Float | Internal Gateway execution latency in milliseconds. |
+* Advanced agent orchestration
+* Async + distributed execution
+* Deeper LangChain & LlamaIndex integrations
+* Semantic retrieval extensions
 
 ---
 
-## 🧠 Pre-Ingestion Knowledge Base (.md) Converter Engine (v0.3.0)
+## 👨‍💻 Author
 
-### Why Pre-Ingestion Conversion?
-When LLMs (Claude 3.5/3.7, GPT-4o, Gemini 1.5/2.0, LLaMA 3, DeepSeek R1/V3) process raw PDFs, scanned images, or multi-file code repositories, they consume tens of thousands of tokens. Multi-page PDFs trigger vision/rendering token bloat (~1,500 - 3,000 tokens per page), and raw codebases pollute context windows with boilerplate code.
+Built with focus on:
 
-DocArmor's **Pre-Ingestion Knowledge Base Engine** (`kb.rs`) sits directly before raw content is passed to LLM agents. It converts raw documents, images, and codebase repositories into structured, hyper-compressed **Knowledge Base Markdown (`.md`)** files equipped with:
-
-- **Zero Truncation Guarantee**: 100% of document content is preserved without arbitrary line cutoffs or missing sections.
-- **Balanced Code Fence Protection**: State-aware parsing tracks ` ``` ` fences, ensuring code blocks are never cut in half or malformed.
-- **Hierarchical Table of Contents (TOC)**: Deep nested links reflecting true heading depth (`#`, `##`, `###`) with CommonMark/GitHub anchor slugs.
-- **Configurable Detail Modes**:
-  - `mode="full"`: Complete original content organized with structured TOC, back-to-top links, and metadata.
-  - `mode="compact"`: Prunes excessive whitespace, duplicate lines, and comments (real 30–60% token reduction).
-  - `mode="outline"`: Generates API skeletons, heading outlines, and symbol footprints for high-level agent routing.
-- **Header Metadata & Telemetry**: Title, document class, target model compatibility, and token reduction stats.
-- **Executive Summary & Key Takeaways**: High-density distilled insights and domain classification (skips badge links and markup noise).
-- **Domain Taxonomy & PII Governance**: Entity map, PII categories found, and compliance flags.
-- **Deep Navigation Links**: Footers for reliable LLM agent navigation (`[↑ Back to Table of Contents](#table-of-contents)`).
+* performance
+* scalability
+* real-world AI system needs
 
 ---
 
-## ⚡ True Hardware Parallelism: Overcoming Python's GIL for Agent Tool Execution
+## ⭐ Final Note
 
-### Why Python Agent Frameworks (LangChain, CrewAI, AutoGen) Hit a Concurrency Wall
+DocArmor is designed for developers who want:
 
-Autonomous multi-agent systems and SWE-bench agents rely heavily on **parallel tool calling**—evaluating safety guardrails, scrubbing PII, calculating token budgets, and parsing multi-file codebases simultaneously.
-
-However, in standard Python:
-- **`asyncio` & `ThreadPoolExecutor` are an illusion for CPU tasks**: While Python threads release the GIL during network I/O sockets (e.g., waiting for an API response), they **completely serialize on CPU-bound tool workloads** (regex matching, BPE tokenization, document parsing, hash deduplication, markdown generation). Threads stall and contend for the single global interpreter lock.
-- **`multiprocessing` incurs massive IPC serialization tax**: Spawning worker processes requires pickling large document payloads, duplicating process memory, and paying steep inter-process communication (IPC) latency penalties.
-
-### The DocArmor Solution: Bare-Metal Rust Rayon Work-Stealing
-
-DocArmor solves this at the systems level:
-1. **Zero-GIL Execution**: The instant Python calls `ParallelToolExecutor.run()`, DocArmor issues `py.allow_threads(|| { ... })`, completely freeing the Python interpreter.
-2. **Work-Stealing Concurrency**: Tasks are scheduled onto Rust's adaptive `rayon` thread pool, which automatically balances heterogeneous tool jobs across **100% of available CPU cores**.
-3. **Zero IPC Overhead**: Payloads are processed in unified memory with microsecond-level dispatch and synchronization.
-4. **Sub-4ms Join**: Results are aggregated in Rust and returned to Python simultaneously.
-
-```mermaid
-graph TD
-    subgraph Python_Agents_LangChain["Traditional Python Agent Frameworks (GIL Serialization)"]
-        A1[Agent Tool Call 1: PII Scrub] -->|Acquires GIL| Core1[CPU Core 0: Serialized]
-        A2[Agent Tool Call 2: Token Count] -.->|Blocked by GIL| Core1
-        A3[Agent Tool Call 3: KB Markdown] -.->|Blocked by GIL| Core1
-        A4[Agent Tool Call 4: Security Scan] -.->|Blocked by GIL| Core1
-        Core1 --> SlowRes[Stalls Execution: 612.9 ms for 400 ops]
-    end
-
-    subgraph DocArmor_Rayon["DocArmor Parallel Engine (True Bare-Metal Multi-Core)"]
-        PA[Python Agent: py.allow_threads] ==>|Releases GIL Instantly| RP[Rust Rayon Work-Stealing Pool]
-        RP --> C0[Core 0: Tool 1 PII Scrub]
-        RP --> C1[Core 1: Tool 2 Token Budget]
-        RP --> C2[Core 2: Tool 3 KB Markdown]
-        RP --> C3[Core 3: Tool 4 Security Scan]
-        RP --> CN[Core N: Concurrent Tool N]
-        C0 & C1 & C2 & C3 & CN ==> FastRes[Joined Simultaneously in 3.82 ms: 104,646 ops/sec]
-    end
-```
+* control over LLM cost
+* secure document pipelines
+* high-performance processing
+* scalable AI workflows
 
 ---
 
-### Concurrency Benchmark: Python GIL vs. DocArmor Rayon
-
-Benchmark measuring 400 heterogeneous tool executions (PII redaction, token budgeting, document scanning) on multi-core hardware:
-
-| Execution Engine | Operations Executed | Total Latency (ms) | Throughput | Concurrency Speedup |
-| :--- | :--- | :--- | :--- | :--- |
-| **Standard Python (GIL Contention)** | 400 operations | 612.97 ms | 652 ops/sec | 1.0x (baseline) |
-| **DocArmor Rust Rayon Engine** | 400 operations | **3.82 ms** | **104,646 ops/sec** | **⚡ 160.4x FASTER** |
-
----
-
-### Drop-In Agent & LangChain Integration
-
-#### 1. Batch Multi-Tool Execution in Agents
-```python
-from docarmor.parallel import ParallelToolExecutor, run_parallel_tools
-
-executor = ParallelToolExecutor()
-
-# Queue heterogeneous agent tool tasks simultaneously
-for item in agent_work_items:
-    executor.add_task(task_type="token_budget", content=item["text"], target_model="gpt-6")
-    executor.add_task(task_type="redact_pii", content=item["text"])
-    executor.add_task(task_type="to_kb", content=item["text"], mode="compact")
-    executor.add_task(task_type="scan", file_path=item["file_path"])
-
-# Releases GIL and runs across all CPU cores concurrently
-results = executor.run()
-```
-
-#### 2. LangChain / CrewAI Parallel Tool Runner
-```python
-import docarmor
-from docarmor.parallel import run_parallel_tools
-
-# LangChain agent fan-out tool dispatcher
-def parallel_guardrail_tools(documents: list[str]) -> list[dict]:
-    tasks = [
-        {"task_type": "redact_pii", "content": doc} for doc in documents
-    ] + [
-        {"task_type": "token_budget", "content": doc, "target_model": "claude-5-sonnet"} for doc in documents
-    ]
-    # Runs in Rust Rayon with zero Python GIL contention
-    return run_parallel_tools(tasks)
-```
-
----
-
-## 🔌 Native Model Context Protocol (MCP) Server
-
-DocArmor includes a native, sub-millisecond **Model Context Protocol (MCP)** server over standard I/O (STDIO) with **22µs response latency**.
-
-### Running the MCP Server
-```bash
-# Direct CLI execution
-python -m docarmor.mcp
-
-# Or use the native binary
-./target/release/docarmor-mcp
-```
-
-### Claude Desktop / Cursor / Antigravity MCP Configuration
-Add DocArmor to your `claude_desktop_config.json` or Cursor MCP settings:
-
-```json
-{
-  "mcpServers": {
-    "docarmor": {
-      "command": "python",
-      "args": ["-m", "docarmor.mcp"]
-    }
-  }
-}
-```
-
-### Exposed MCP Tools
-1. `docarmor_scan`: Security scanning, quality score, PII detection, and exact token counting.
-2. `docarmor_to_kb`: Structured Knowledge Base markdown generation with hierarchical TOC and anchors.
-3. `docarmor_redact_pii`: Rust-native ultra-fast PII detection & masking before prompt submission.
-4. `docarmor_token_budget`: Exact `tiktoken` calculation across Claude 3.7, GPT-4o, Gemini 2.0, DeepSeek R1.
-5. `docarmor_repo_digest`: Multi-file repository aggregator ("one brain").
-6. `docarmor_parallel_tools`: Concurrent multi-tool batch execution over Rayon.
-
----
-
-## 🤖 Universal Agent Framework Integration Layer (Rust-Powered)
-
-DocArmor provides a **native, dynamic integration layer** that allows all DocArmor tools (and custom registered tools) to be consumed universally across:
-- **LangChain & LangGraph** (`to_langchain_tools()`, `get_langchain_tool()`)
-- **CrewAI** (`to_crewai_tools()`, `get_crewai_tool()`)
-- **Microsoft AutoGen** (`register_with_autogen(agent)`)
-- **LlamaIndex** (`to_llamaindex_tools()`, `get_llamaindex_tool()`)
-- **OpenAI Function Calling** (`to_openai_tools()`)
-- **Anthropic Tool Use** (`to_anthropic_tools()`)
-- **Model Context Protocol** (`to_mcp_tools()`)
-
-### Zero Mandatory Dependencies & Dynamic Duck-Typing
-DocArmor **does not force you to install heavy agent dependencies**:
-- If `langchain_core` or `crewai` is installed in your virtual environment, DocArmor dynamically exports native `StructuredTool` or `BaseTool` instances.
-- In minimal environments, DocArmor returns universal duck-typed tool adapters implementing the full protocol (including `.name`, `.description`, `.args_schema`, `.run()`, `._run()`, and `.invoke()`).
-
-### LangChain / LangGraph
-```python
-from langchain_openai import ChatOpenAI
-import docarmor
-
-# Retrieve tools as native LangChain StructuredTool instances
-tools = docarmor.to_langchain_tools()
-
-# Bind directly to any LangChain LLM or LangGraph ToolNode
-llm = ChatOpenAI(model="gpt-4o").bind_tools(tools)
-```
-
-### CrewAI
-```python
-from crewai import Agent
-import docarmor
-
-# Pass directly to CrewAI agents
-analyst = Agent(
-    role="Document Security Analyst",
-    goal="Inspect incoming enterprise documents for PII and security risks",
-    backstory="Autonomous security agent backed by native Rust execution",
-    tools=docarmor.to_crewai_tools(),
-)
-```
-
-### Microsoft AutoGen
-```python
-from autogen import AssistantAgent, UserProxyAgent
-import docarmor
-
-assistant = AssistantAgent("assistant", llm_config={"config_list": [...]})
-user_proxy = UserProxyAgent("user_proxy", code_execution_config=False)
-
-# Registers all tools with AutoGen in a single dynamic call
-docarmor.register_with_autogen(caller=assistant, executor=user_proxy)
-```
-
-### LlamaIndex
-```python
-from llama_index.core.agent import ReActAgent
-from llama_index.llms.openai import OpenAI
-import docarmor
-
-agent = ReActAgent.from_tools(
-    tools=docarmor.to_llamaindex_tools(),
-    llm=OpenAI(model="gpt-4o"),
-    verbose=True,
-)
-```
-
-### Direct OpenAI & Anthropic Tool Schemas
-```python
-import openai, anthropic
-import docarmor
-
-# Export ready-to-use schemas dynamically from Rust
-openai_tools = docarmor.to_openai_tools()
-anthropic_tools = docarmor.to_anthropic_tools()
-
-# Pass directly to the OpenAI client
-# response = client.chat.completions.create(model="gpt-4o", messages=[...], tools=openai_tools)
-```
-
-### Dynamic Custom Tool Registration (Rust Core)
-Register custom tools into DocArmor at runtime with instant multi-framework export:
-```python
-import docarmor
-
-def custom_verifier(query: str) -> dict:
-    return {"verified": True, "details": "Custom logic"}
-
-docarmor.register_tool(
-    name="custom_verifier",
-    description="Validates compliance policies",
-    parameters={
-        "type": "object",
-        "properties": {"query": {"type": "string"}},
-        "required": ["query"],
-    },
-    handler=custom_verifier,
-)
-
-# Immediately available in all framework exporters!
-assert any(t["function"]["name"] == "custom_verifier" for t in docarmor.to_openai_tools())
-```
-
----
-
-Benchmark evaluating full multi-module repository ingestion across autonomous software engineering agent profiles (17 source code modules, 33,929 raw codebase tokens) using DocArmor's "One Brain" Rayon-parallel ingestion engine:
-
-| Target Model Profile | Model Target String | Raw Input Tokens | Knowledge Base Tokens | Token Reduction (%) | Raw Cost / Query | DocArmor Cost / Query | Net Savings / Query | Ingestion Latency |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Claude 5 Sonnet** | `claude-5-sonnet` | 33,929 tokens | 8,526 tokens | **74.9% Reduction** | $0.10179 USD | $0.02558 USD | **+$0.07621 USD** | **22.8 ms** |
-| **Claude 5 Opus** | `claude-5-opus` | 33,929 tokens | 8,525 tokens | **74.9% Reduction** | $0.16965 USD | $0.04263 USD | **+$0.12702 USD** | **17.6 ms** |
-| **Claude Fable 5.1** | `fable-5.1` | 33,929 tokens | 8,525 tokens | **74.9% Reduction** | $0.04071 USD | $0.01023 USD | **+$0.03048 USD** | **15.6 ms** |
-| **Claude 5 Haiku** | `claude-5-haiku` | 33,929 tokens | 8,526 tokens | **74.9% Reduction** | $0.02036 USD | $0.00512 USD | **+$0.01524 USD** | **16.4 ms** |
-| **OpenAI GPT-6** | `gpt-6` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.11875 USD | $0.02983 USD | **+$0.08892 USD** | **16.0 ms** |
-| **OpenAI GPT-5** | `gpt-5` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.06786 USD | $0.01705 USD | **+$0.05081 USD** | **15.7 ms** |
-| **Google Gemini 2.5 Pro**| `gemini-2.5-pro` | 33,929 tokens | 8,526 tokens | **74.9% Reduction** | $0.00339 USD | $0.00085 USD | **+$0.00254 USD** | **15.8 ms** |
-| **DeepSeek R1** | `deepseek-r1` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.01866 USD | $0.00469 USD | **+$0.01397 USD** | **16.9 ms** |
-| **Meta LLaMA 4** | `llama-4` | 33,929 tokens | 8,523 tokens | **74.9% Reduction** | $0.02714 USD | $0.00682 USD | **+$0.02032 USD** | **15.5 ms** |
-
----
-
-### 🌐 Frontier Multi-Model Support Matrix (2026)
-
-| Model Family | Target Model Identifiers | Rate per 1M Tokens | Context Window Limit | Primary Agent Use Case |
-| :--- | :--- | :--- | :--- | :--- |
-| **Claude 5 Sonnet** | `claude-5-sonnet`, `claude-sonnet-5`, `claude-3-7-sonnet` | **$3.00** | 500,000 tokens | General reasoning, deep refactoring, SWE-bench coding |
-| **Claude 5 Opus** | `claude-5-opus`, `claude-opus-5` | **$5.00** | 500,000 tokens | Complex architectural design, formal verification |
-| **Claude Fable 5.1** | `claude-fable-5.1`, `fable-5.1`, `fable` | **$1.20** | 300,000 tokens | High-speed multi-agent workflows, autonomous execution |
-| **Claude 5 Haiku** | `claude-5-haiku`, `haiku-5`, `claude-3-5-haiku` | **$0.60** | 300,000 tokens | Rapid triage, guardrails, classification |
-| **OpenAI GPT-6** | `gpt-6`, `gpt-6-omni` | **$3.50** | 256,000 tokens | Flagship frontier reasoning & multi-step planning |
-| **OpenAI GPT-5** | `gpt-5`, `gpt-4o` | **$2.00** | 256,000 tokens | High-throughput agent tool calls & general inference |
-| **OpenAI Mini** | `gpt-5-mini`, `gpt-4o-mini` | **$0.15** | 256,000 tokens | Lightweight screening, sentiment, fast regex routing |
-| **Google Gemini 2.5 Pro**| `gemini-2.5-pro` | **$1.25** | 2,000,000 tokens | Mega-context repository & multimodal document audit |
-| **Google Gemini Flash** | `gemini-2.0-flash` | **$0.10** | 1,000,000 tokens | Real-time streaming & low-latency extraction |
-| **DeepSeek R1 / V3** | `deepseek-r1`, `deepseek-v3` | **$0.55** | 128,000 tokens | Open-weight high-efficiency deep reasoning |
-| **Meta LLaMA 4** | `llama-4-405b`, `llama-4-scout`, `llama-4` | **$0.80** | 256,000 tokens | Enterprise on-prem & sovereign AI deployments |
-
----
-
-## Supported Formats
-
-| Format | Extension | Extraction Method | Key Features |
-| :--- | :--- | :--- | :--- |
-| **PDF** | `.pdf` | Native lopdf Parser | Structural reading, scanned detection, page extraction |
-| **Word** | `.docx` | Native docx XML Parser | Direct paragraph and table text extraction |
-| **PowerPoint** | `.pptx` | Native pptx XML Parser | Shape text, slide processing, bullet analysis |
-| **Excel** | `.xlsx` | Calamine Engine | Spreadsheet parsing, cell extraction, rows estimation |
-| **CSV** | `.csv` | CSV Parser | Direct row, column parsing, delimiter validation |
-| **Plain Text** | `.txt`, `.md` | Unicode Parser | Streaming flat extraction, lossy fallback encoding |
-| **JSON** | `.json` | Serde JSON | Recursive nested key-value string extraction |
-| **XML** | `.xml` | Quick XML Parser | Tag-stripped text, element-wise traversal |
-| **HTML** | `.html` | Quick XML Parser | Element parsing, script/style extraction filtering |
-
----
-
-## Configuration Limits
-
-| Setting | Default Value | Purpose |
-| :--- | :--- | :--- |
-| `target_model` | `"gpt-4"` | Target context size limit check |
-| `tokenizer_name` | `"cl100k_base"` | Tokenizer profile (cl100k_base, r50k_base, p50k_base) |
-| `max_file_size` | `52,428,800` bytes (50MB) | Intercept oversized documents |
-| `embedding_rate_per_million` | `$0.02` | Custom embedding cost rate |
----
-
-## Ingestion Pipeline Flow
-
-```mermaid
-graph TD
-    File[Document Uploaded] --> Security[Security Scanner: check sizes, corruption, zip bombs]
-    Security -->|High Risk| Block[Abort: return error / flag security_risk]
-    Security -->|Safe| Parser[Select Parser based on Extension: PDF, Docx, Xlsx, etc.]
-    Parser --> Quality[Quality Evaluator: calculate density, pages, readability]
-    
-    Quality -->|Text Empty / Scanned| OCR[Lazy-load OCR: GPU Accelerated MPS/CUDA]
-    Quality -->|Readable Text| Metrics[Metrics Evaluator: TikToken Token Counting, PII detection]
-    
-    OCR --> Metrics
-    Metrics --> Router[Heuristic Domain Classifier & Cost Estimator]
-    Router --> JSON[Generate Telemetry JSON Report]
-```
-
----
-
-## How the OCR Integration Works
-
-
-DocArmor implements a high-performance **hybrid OCR gateway** under the `OcrDocumentAnalyzer` class:
-
-1. **Rust-Native Gatekeeping**:
-   When a file is submitted, DocArmor first uses its sub-millisecond Rust parsers to check the file type and structure.
-   - If the document is a clean digital file (e.g., text PDF, Word doc, or markdown), the text is extracted instantly, and the heavy OCR engine is completely bypassed.
-   - If the file is an image (`.png`, `.jpg`, `.jpeg`, etc.) or is flagged by the Rust quality scanner as a scanned/text-empty PDF (`requires_ocr: True`), the OCR engine is initialized.
-2. **Lazy Loading**:
-   To keep package imports sub-millisecond, PyTorch and EasyOCR model weights are loaded lazily on-demand *only* when the first scanned document or raw image is encountered.
-3. **Hardware Auto-Detection**:
-   The engine dynamically autodetects your host hardware to run deep learning models at maximum speed:
-   - **macOS (Apple Silicon)**: Natively offloads tensor computations to the GPU via **Metal Performance Shaders (MPS)**.
-   - **Windows/Linux with GPU**: Automatically targets your Nvidia GPU via **CUDA**.
-   - **Fallback**: Runs on optimized multi-threaded **CPU**.
-4. **Rust Telemetry Reconciliation**:
-   Once text is extracted via OCR, the raw text bytes are passed back into DocArmor's Rust core using a virtual text buffer. The Rust engine then computes exact GPT token budgets (`tiktoken-rs`), counts words/characters, runs domain classification, and generates cost estimations—reconciling all statistics back into a single unified JSON schema.
-
----
-
-## Examples
-
-### Example 1: RAG Ingestion Security & Quality Gatekeeper
-Ensure that only secure, high-quality, digital documents enter your vector database:
-```python
-import json
-import docarmor
-
-analyzer = docarmor.DocumentAnalyzer()
-report = json.loads(analyzer.analyze_file("user_upload.pdf"))
-
-# Intercept risks at the gateway
-if report["security_risk"] == "high":
-    raise ValueError(f"CRITICAL: Security exception triggered for {report['file_name']}")
-
-if report["requires_ocr"]:
-    print(f"Routing {report['file_name']} to hardware-accelerated OCR pipeline.")
-elif not report["rag_ready"]:
-    print(f"Skipping {report['file_name']} due to low text quality score: {report['quality_score']}")
-else:
-    print(f"Ingesting clean document text. Context Size: {report['token_count']} tokens.")
-```
-
-### Example 2: API Cost Budgeting & Model Window Check
-Calculate API transaction costs and verify if a document fits within a model's context window:
-```python
-import json
-import docarmor
-
-analyzer = docarmor.DocumentAnalyzer({
-    "target_model": "gpt-3.5-turbo",
-    "llm_input_rate_per_million": 1.50
-})
-
-report = json.loads(analyzer.analyze_file("long_transcript.txt"))
-
-if not report["fits_context"]:
-    print(f"Document exceeds target context window. Recommended chunking strategy: {report['recommended_chunking']}")
-else:
-    print(f"Document fits. Estimated processing cost: ${report['estimated_llm_cost']:.4f}")
-```
-
-### Example 3: Hardware-Accelerated OCR Integration (Metal/CUDA)
-Incorporate unified OCR for scanned files directly from the installed package:
-```python
-import json
-from docarmor import OcrDocumentAnalyzer
-
-# Initialize unified OcrDocumentAnalyzer (auto-routes to Apple Metal MPS or CUDA)
-gateway = OcrDocumentAnalyzer()
-
-report_json = gateway.analyze_file("scanned_receipt.jpg")
-report = json.loads(report_json)
-
-print(f"OCR Text: {report['text']}")
-print(f"OCR Tokens: {report['token_count']} | RAG Ready: {report['rag_ready']}")
-```
-
----
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
+**Stop sending raw data to LLMs.
+Start controlling your AI pipeline.**
