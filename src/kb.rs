@@ -39,14 +39,25 @@ pub fn get_model_rate(model_name: &str) -> f64 {
 }
 
 pub fn slugify(text: &str) -> String {
-    text.to_lowercase()
-        .chars()
-        .map(|c| if c.is_alphanumeric() { c } else { '-' })
-        .collect::<String>()
-        .split('-')
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<&str>>()
-        .join("-")
+    let mut slug = String::new();
+    let mut prev_dash = false;
+    for c in text.chars() {
+        if c.is_alphanumeric() {
+            slug.push(c.to_ascii_lowercase());
+            prev_dash = false;
+        } else if (c == ' ' || c == '-' || c == '_') && !prev_dash && !slug.is_empty() {
+            slug.push('-');
+            prev_dash = true;
+        }
+    }
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+    if slug.is_empty() {
+        "section".to_string()
+    } else {
+        slug
+    }
 }
 
 pub fn is_code_file(ext: &str) -> bool {
@@ -80,7 +91,7 @@ pub fn extract_code_signatures(text: &str, ext: &str) -> Vec<String> {
                 trimmed.to_string()
             };
             sigs.push(sig_clean);
-            if sigs.len() >= 15 {
+            if sigs.len() >= 25 {
                 break;
             }
         }
@@ -88,10 +99,98 @@ pub fn extract_code_signatures(text: &str, ext: &str) -> Vec<String> {
     sigs
 }
 
+#[derive(Debug, Clone)]
+pub struct SectionBlock {
+    pub title: String,
+    pub level: usize,
+    pub lines: Vec<String>,
+}
+
+pub fn parse_document_sections(text: &str, _ext: &str, domain_class: &str) -> Vec<SectionBlock> {
+    let mut sections: Vec<SectionBlock> = Vec::new();
+    let mut current_title = format!("1. Core {} Overview", domain_class);
+    let mut current_level = 2;
+    let mut current_lines = Vec::new();
+    let mut section_counter = 1;
+    let mut in_code_block = false;
+
+    for line in text.lines() {
+        let trimmed = line.trim();
+        
+        // Track code fence toggle to prevent splitting inside code blocks
+        if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            in_code_block = !in_code_block;
+            current_lines.push(line.to_string());
+            continue;
+        }
+
+        if in_code_block {
+            current_lines.push(line.to_string());
+            continue;
+        }
+
+        // Markdown heading detection: line starts with one or more '#' followed by space
+        let hash_count = line.chars().take_while(|&c| c == '#').count();
+        let is_md_header = hash_count > 0 && line[hash_count..].starts_with(' ');
+        
+        // Non-markdown section keywords: "Section X:", "Chapter X:"
+        let lower = trimmed.to_lowercase();
+        let is_keyword_header = (lower.starts_with("section ") || lower.starts_with("chapter ") || lower.starts_with("part "))
+            && trimmed.contains(':') && trimmed.len() < 80;
+
+        if is_md_header || is_keyword_header {
+            if !current_lines.is_empty() {
+                sections.push(SectionBlock {
+                    title: current_title.clone(),
+                    level: current_level,
+                    lines: current_lines.clone(),
+                });
+                current_lines.clear();
+            }
+
+            section_counter += 1;
+            if is_md_header {
+                current_level = hash_count;
+                let clean_title = line[hash_count..].trim();
+                current_title = if clean_title.is_empty() {
+                    format!("{}. Section {}", section_counter, section_counter)
+                } else {
+                    format!("{}. {}", section_counter, clean_title)
+                };
+            } else {
+                current_level = 2;
+                current_title = format!("{}. {}", section_counter, trimmed);
+            }
+        } else {
+            current_lines.push(line.to_string());
+        }
+    }
+
+    if !current_lines.is_empty() || sections.is_empty() {
+        sections.push(SectionBlock {
+            title: current_title,
+            level: current_level,
+            lines: current_lines,
+        });
+    }
+
+    sections
+}
+
 pub fn convert_single_to_kb(
     content: &[u8],
     file_name: &str,
     target_model: &str,
+    config: &AnalysisConfig,
+) -> Value {
+    convert_single_to_kb_with_mode(content, file_name, target_model, "full", config)
+}
+
+pub fn convert_single_to_kb_with_mode(
+    content: &[u8],
+    file_name: &str,
+    target_model: &str,
+    mode: &str,
     config: &AnalysisConfig,
 ) -> Value {
     let start_time = Instant::now();
@@ -116,6 +215,7 @@ pub fn convert_single_to_kb(
                 "file_name": file_name,
                 "file_type": ext,
                 "target_model": target_model,
+                "mode": mode,
                 "raw_tokens": 0,
                 "kb_tokens": 0,
                 "tokens_saved": 0,
@@ -145,25 +245,42 @@ pub fn convert_single_to_kb(
     let pii_found = detect_pii(&doc.text);
     let contains_pii = !pii_found.is_empty();
 
-    // Deduplicate consecutive lines and filter boilerplate noise
-    let mut unique_lines: Vec<&str> = Vec::new();
-    for line in doc.text.lines().map(|l| l.trim()).filter(|l| !l.is_empty()) {
-        if unique_lines.last() != Some(&line) {
-            unique_lines.push(line);
+    // Extract genuine, informative summary takeaways (skip markdown badges, image links, table separators)
+    let mut summary_takeaways = Vec::new();
+    for line in doc.text.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() 
+            || trimmed.starts_with('#') 
+            || trimmed.starts_with("---")
+            || trimmed.starts_with("***")
+            || trimmed.starts_with("```")
+            || trimmed.starts_with("![")
+            || trimmed.starts_with("[![")
+            || trimmed.starts_with('<')
+            || trimmed.starts_with('|')
+            || trimmed.len() < 20
+        {
+            continue;
+        }
+        let clean = trimmed.trim_start_matches(|c| c == '*' || c == '-' || c == '+' || c == ' ').trim();
+        let display = if clean.len() > 140 {
+            format!("{}...", &clean[..140])
+        } else {
+            clean.to_string()
+        };
+        if !summary_takeaways.contains(&display) {
+            summary_takeaways.push(display);
+            if summary_takeaways.len() >= 6 {
+                break;
+            }
         }
     }
-
-    let summary_takeaways: Vec<String> = unique_lines
-        .iter()
-        .take(6)
-        .map(|&l| {
-            if l.len() > 140 {
-                format!("{}...", &l[..140])
-            } else {
-                l.to_string()
-            }
-        })
-        .collect();
+    if summary_takeaways.is_empty() {
+        summary_takeaways.push(format!(
+            "Document categorized under {} containing {} characters across {} pages.",
+            domain_class, doc.text.chars().count(), doc.page_count
+        ));
+    }
 
     let code_signatures = if is_code_file(&ext) {
         extract_code_signatures(&doc.text, &ext)
@@ -171,59 +288,32 @@ pub fn convert_single_to_kb(
         Vec::new()
     };
 
-    let mut section_blocks: Vec<(String, String)> = Vec::new();
-    let mut current_title = format!("1. Core {} Overview", domain_class);
-    let mut current_lines = Vec::new();
-    let mut section_idx = 1;
+    let section_blocks = parse_document_sections(&doc.text, &ext, &domain_class);
 
-    for line in &unique_lines {
-        let is_header = line.starts_with('#') 
-            || line.to_lowercase().starts_with("section") 
-            || line.to_lowercase().starts_with("chapter")
-            || (line.ends_with(':') && line.len() < 60);
-
-        if is_header && !current_lines.is_empty() {
-            section_blocks.push((current_title, current_lines.join("\n")));
-            current_lines.clear();
-            section_idx += 1;
-            let clean_header = line.trim_start_matches('#').trim();
-            current_title = format!("{}. {}", section_idx, clean_header);
-        } else {
-            if current_lines.len() < 12 {
-                current_lines.push(*line);
-            }
-            if current_lines.len() >= 12 {
-                section_blocks.push((current_title, current_lines.join("\n")));
-                current_lines.clear();
-                section_idx += 1;
-                current_title = format!("{}. Knowledge Module Part {}", section_idx, section_idx);
-            }
-        }
-        if section_blocks.len() >= 8 {
-            break;
-        }
-    }
-    if !current_lines.is_empty() && section_blocks.len() < 8 {
-        section_blocks.push((current_title, current_lines.join("\n")));
-    }
-
+    // Build Table of Contents with nested hierarchy and CommonMark-compliant slugs
     let mut toc_markdown = String::from("## Table of Contents\n\n");
     toc_markdown.push_str("- [Executive Summary](#executive-summary)\n");
-    toc_markdown.push_str("- [Domain Taxonomy & Governance](#domain-taxonomy--governance)\n");
+    toc_markdown.push_str("- [Domain Taxonomy & Governance](#domain-taxonomy-governance)\n");
     if !code_signatures.is_empty() {
-        toc_markdown.push_str("- [Code Architecture & Symbol Outline](#code-architecture--symbol-outline)\n");
+        toc_markdown.push_str("- [Code Architecture & Symbol Outline](#code-architecture-symbol-outline)\n");
     }
-    for (stitle, _) in &section_blocks {
-        let slug = slugify(stitle);
-        toc_markdown.push_str(&format!("- [{}](#{})\n", stitle, slug));
+    
+    for section in &section_blocks {
+        let slug = slugify(&section.title);
+        let indent = if section.level > 2 {
+            "  ".repeat(section.level - 2)
+        } else {
+            String::new()
+        };
+        toc_markdown.push_str(&format!("{}- [{}](#{})\n", indent, section.title, slug));
     }
-    toc_markdown.push_str("- [Navigation & Index](#navigation--index)\n\n");
+    toc_markdown.push_str("- [Navigation & Index](#navigation-index)\n\n");
 
     let mut kb_md = String::new();
     kb_md.push_str(&format!("# Knowledge Base: {}\n\n", file_name));
     kb_md.push_str(&format!(
-        "> **DocArmor Knowledge Base Layer** | Target Model: `{}` | Class: `{}` | Target Agent: `{}`\n\n",
-        target_model, domain_class, agent_target
+        "> **DocArmor Knowledge Base Layer** | Target Model: `{}` | Class: `{}` | Target Agent: `{}` | Mode: `{}`\n\n",
+        target_model, domain_class, agent_target, mode
     ));
     kb_md.push_str("---\n\n");
 
@@ -270,26 +360,74 @@ pub fn convert_single_to_kb(
         kb_md.push_str("---\n\n");
     }
 
-    // Knowledge Modules
-    for (stitle, content_text) in &section_blocks {
-        let slug = slugify(stitle);
-        kb_md.push_str(&format!("## {}\n\n", stitle));
-        if is_code_file(&ext) {
-            kb_md.push_str(&format!("```{}\n{}\n```\n\n", ext, content_text));
-        } else {
-            kb_md.push_str(content_text);
-            kb_md.push_str("\n\n");
+    // Knowledge Modules: emit each section completely, respecting the requested mode
+    for section in &section_blocks {
+        let slug = slugify(&section.title);
+        kb_md.push_str(&format!("## {}\n\n", section.title));
+
+        match mode {
+            "compact" => {
+                // Deduplicate consecutive blank lines and strip noise
+                let mut prev_empty = false;
+                let mut compact_lines = Vec::new();
+                for l in &section.lines {
+                    let trimmed = l.trim();
+                    if trimmed.is_empty() {
+                        if !prev_empty {
+                            compact_lines.push("");
+                            prev_empty = true;
+                        }
+                    } else {
+                        prev_empty = false;
+                        compact_lines.push(l.as_str());
+                    }
+                }
+                let body = compact_lines.join("\n");
+                if is_code_file(&ext) && !body.starts_with("```") {
+                    kb_md.push_str(&format!("```{}\n{}\n```\n\n", ext, body));
+                } else {
+                    kb_md.push_str(&body);
+                    kb_md.push_str("\n\n");
+                }
+            }
+            "outline" => {
+                // Preview only top 3 lines of section
+                let preview: Vec<&str> = section.lines.iter()
+                    .map(|s| s.as_str())
+                    .filter(|s| !s.trim().is_empty())
+                    .take(3)
+                    .collect();
+                if !preview.is_empty() {
+                    kb_md.push_str(&preview.join("\n"));
+                    if section.lines.len() > 3 {
+                        kb_md.push_str("\n\n*(... content summarized in outline mode ...)*\n\n");
+                    } else {
+                        kb_md.push_str("\n\n");
+                    }
+                }
+            }
+            _ => {
+                // "full" mode: full section content preserved intact
+                let body = section.lines.join("\n");
+                if is_code_file(&ext) && !body.starts_with("```") {
+                    kb_md.push_str(&format!("```{}\n{}\n```\n\n", ext, body));
+                } else {
+                    kb_md.push_str(&body);
+                    kb_md.push_str("\n\n");
+                }
+            }
         }
+
         kb_md.push_str(&format!("[↑ Back to Table of Contents](#table-of-contents) | [Anchor Link](#{})\n\n---\n\n", slug));
     }
 
     // Navigation & Index
     kb_md.push_str("## Navigation & Index\n\n");
     kb_md.push_str("- [Executive Summary](#executive-summary)\n");
-    kb_md.push_str("- [Domain Taxonomy & Governance](#domain-taxonomy--governance)\n");
-    for (stitle, _) in &section_blocks {
-        let slug = slugify(stitle);
-        kb_md.push_str(&format!("- [{}](#{})\n", stitle, slug));
+    kb_md.push_str("- [Domain Taxonomy & Governance](#domain-taxonomy-governance)\n");
+    for section in &section_blocks {
+        let slug = slugify(&section.title);
+        kb_md.push_str(&format!("- [{}](#{})\n", section.title, slug));
     }
     kb_md.push_str("\n*Generated automatically by DocArmor Pre-Ingestion Knowledge Base Engine.*\n");
 
@@ -314,6 +452,7 @@ pub fn convert_single_to_kb(
             "file_name": file_name,
             "file_type": ext,
             "target_model": target_model,
+            "mode": mode,
             "raw_tokens": raw_tokens,
             "kb_tokens": kb_tokens,
             "tokens_saved": tokens_saved,
@@ -367,6 +506,16 @@ pub fn convert_directory_to_kb(
     target_model: &str,
     config: &AnalysisConfig,
 ) -> Value {
+    convert_directory_to_kb_with_mode(dir_path, recursive, target_model, "full", config)
+}
+
+pub fn convert_directory_to_kb_with_mode(
+    dir_path: &str,
+    recursive: bool,
+    target_model: &str,
+    mode: &str,
+    config: &AnalysisConfig,
+) -> Value {
     let start_time = Instant::now();
     let root_path = Path::new(dir_path);
 
@@ -398,7 +547,7 @@ pub fn convert_directory_to_kb(
                 .unwrap_or_else(|_| p_str.clone());
 
             let bytes = fs::read(path).ok()?;
-            let result = convert_single_to_kb(&bytes, &rel_path, target_model, config);
+            let result = convert_single_to_kb_with_mode(&bytes, &rel_path, target_model, mode, config);
             Some((rel_path, p_str.clone(), result))
         })
         .collect();
@@ -431,7 +580,7 @@ pub fn convert_directory_to_kb(
             "reduction_percentage": telemetry["reduction_percentage"]
         }));
 
-        combined_sections_md.push_str(&format!("<a name=\"file-{}\"></a>\n", file_slug));
+        combined_sections_md.push_str(&format!("<a id=\"file-{}\"></a>\n", file_slug));
         combined_sections_md.push_str(&format!("### File Module: `{}`\n\n", rel_path));
         combined_sections_md.push_str(&format!(
             "> Class: `{}` | Target Agent: `{}`\n\n",
@@ -440,21 +589,33 @@ pub fn convert_directory_to_kb(
         ));
 
         if let Some(md_text) = kb_val["markdown"].as_str() {
-            // Extract the core executive summary and knowledge sections, skipping repeated headers
-            let lines: Vec<&str> = md_text.lines()
-                .filter(|l| !l.starts_with("# Knowledge Base:") && !l.starts_with("> **DocArmor") && !l.starts_with("## Table of Contents"))
-                .take(35)
-                .collect();
-            combined_sections_md.push_str(&lines.join("\n"));
+            // Strip redundant top title and TOC so modules cleanly embed into the project brain
+            let mut skip_header = true;
+            let mut module_lines = Vec::new();
+            for l in md_text.lines() {
+                if skip_header {
+                    if l.starts_with("## Executive Summary") {
+                        skip_header = false;
+                        module_lines.push(l);
+                    }
+                } else if !l.starts_with("## Navigation & Index") {
+                    module_lines.push(l);
+                }
+            }
+            if module_lines.is_empty() {
+                combined_sections_md.push_str(md_text);
+            } else {
+                combined_sections_md.push_str(&module_lines.join("\n"));
+            }
         }
-        combined_sections_md.push_str("\n\n[↑ Back to Project Index](#project-file-directory-tree--module-index)\n\n---\n\n");
+        combined_sections_md.push_str("\n\n[↑ Back to Project Index](#project-file-directory-tree-module-index)\n\n---\n\n");
     }
 
     let mut project_kb_md = String::new();
     project_kb_md.push_str(&format!("# Project Knowledge Base: {}\n\n", project_name));
     project_kb_md.push_str(&format!(
-        "> **DocArmor Unified Project Brain** | Target Model: `{}` | Total Files: `{}`\n\n",
-        target_model, file_results.len()
+        "> **DocArmor Unified Project Brain** | Target Model: `{}` | Total Files: `{}` | Mode: `{}`\n\n",
+        target_model, file_results.len(), mode
     ));
     project_kb_md.push_str("---\n\n");
 
@@ -492,6 +653,7 @@ pub fn convert_directory_to_kb(
             "project_name": project_name,
             "dir_path": dir_path,
             "target_model": target_model,
+            "mode": mode,
             "total_files": file_results.len(),
             "raw_tokens": total_raw_tokens,
             "kb_tokens": total_kb_tokens,

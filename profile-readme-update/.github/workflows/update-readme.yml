@@ -31,4 +31,5 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git diff --quiet || (git add README.md && git commit -m "📊 Auto-update DocArmor download stats [$(date -u +'%Y-%m-%d')]" && git push)
+          git add README.md data/download-history.json
+          git diff --cached --quiet || (git commit -m "📊 Auto-update DocArmor download stats [$(date -u +'%Y-%m-%d')]" && git push)

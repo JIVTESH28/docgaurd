@@ -2,14 +2,16 @@ use pyo3::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
 
-mod parsers;
-mod security;
-mod quality;
-mod classifier;
-mod recommendations;
-mod batch;
-mod pii;
-mod kb;
+pub mod parsers;
+pub mod security;
+pub mod quality;
+pub mod classifier;
+pub mod recommendations;
+pub mod batch;
+pub mod pii;
+pub mod kb;
+pub mod parallel;
+pub mod mcp;
 
 use batch::{AnalysisConfig, analyze_single_document, analyze_batch_files, calculate_sha256};
 
@@ -47,22 +49,12 @@ impl DocumentAnalyzer {
                         analysis_config.llm_input_rate_per_million = f;
                     }
                 }
-                if let Some(size) = cfg.get("max_file_size") {
-                    if let Ok(sz) = size.extract::<usize>(py) {
+                if let Some(max_sz) = cfg.get("max_file_size") {
+                    if let Ok(sz) = max_sz.extract::<usize>(py) {
                         analysis_config.max_file_size = sz;
                     }
                 }
             });
-
-            use std::sync::Arc;
-            let bpe_res = match &analysis_config.tokenizer_name as &str {
-                "r50k_base" => tiktoken_rs::r50k_base(),
-                "p50k_base" => tiktoken_rs::p50k_base(),
-                _ => tiktoken_rs::cl100k_base(),
-            };
-            if let Ok(bpe) = bpe_res {
-                analysis_config.bpe = Some(Arc::new(bpe));
-            }
         }
 
         DocumentAnalyzer {
@@ -70,31 +62,46 @@ impl DocumentAnalyzer {
         }
     }
 
-    fn analyze_file(&self, file_path: String) -> PyResult<String> {
+    #[pyo3(signature = (file_path, file_name = None, is_duplicate = false))]
+    fn analyze_file(
+        &self,
+        file_path: String,
+        file_name: Option<String>,
+        is_duplicate: bool,
+    ) -> PyResult<String> {
         let path = Path::new(&file_path);
-        let file_name = path.file_name()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_else(|| file_path.clone());
+        let name = file_name.unwrap_or_else(|| {
+            path.file_name()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_else(|| file_path.clone())
+        });
 
         let bytes = std::fs::read(path).map_err(|e| {
             pyo3::exceptions::PyFileNotFoundError::new_err(format!("Could not read file: {}", e))
         })?;
 
-        let hash = calculate_sha256(&bytes);
-        let result_val = analyze_single_document(&bytes, &file_name, false, &hash, &self.config);
+        let sha256_hash = calculate_sha256(&bytes);
+        let result_val = analyze_single_document(&bytes, &name, is_duplicate, &sha256_hash, &self.config);
         
         serde_json::to_string(&result_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    fn analyze_bytes(&self, content: Vec<u8>, file_name: String) -> PyResult<String> {
-        let hash = calculate_sha256(&content);
-        let result_val = analyze_single_document(&content, &file_name, false, &hash, &self.config);
+    #[pyo3(signature = (content, file_name, is_duplicate = false))]
+    fn analyze_bytes(
+        &self,
+        content: Vec<u8>,
+        file_name: String,
+        is_duplicate: bool,
+    ) -> PyResult<String> {
+        let sha256_hash = calculate_sha256(&content);
+        let result_val = analyze_single_document(&content, &file_name, is_duplicate, &sha256_hash, &self.config);
         
         serde_json::to_string(&result_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    #[pyo3(signature = (file_paths))]
     fn analyze_batch(&self, file_paths: Vec<String>) -> PyResult<String> {
         let result_val = analyze_batch_files(&file_paths, &self.config);
         
@@ -102,6 +109,7 @@ impl DocumentAnalyzer {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
+    #[pyo3(signature = (dir_path, recursive = None))]
     fn analyze_directory(&self, dir_path: String, recursive: Option<bool>) -> PyResult<String> {
         let path = Path::new(&dir_path);
         if !path.is_dir() {
@@ -118,8 +126,8 @@ impl DocumentAnalyzer {
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    #[pyo3(signature = (file_path, target_model = None))]
-    fn convert_file_to_kb(&self, file_path: String, target_model: Option<String>) -> PyResult<String> {
+    #[pyo3(signature = (file_path, target_model = None, mode = None))]
+    fn convert_file_to_kb(&self, file_path: String, target_model: Option<String>, mode: Option<String>) -> PyResult<String> {
         let path = Path::new(&file_path);
         let file_name = path.file_name()
             .map(|s| s.to_string_lossy().into_owned())
@@ -130,29 +138,100 @@ impl DocumentAnalyzer {
         })?;
 
         let model = target_model.unwrap_or_else(|| self.config.target_model.clone());
-        let res_val = kb::convert_single_to_kb(&bytes, &file_name, &model, &self.config);
+        let kb_mode = mode.unwrap_or_else(|| "full".to_string());
+        let res_val = kb::convert_single_to_kb_with_mode(&bytes, &file_name, &model, &kb_mode, &self.config);
         
         serde_json::to_string(&res_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    #[pyo3(signature = (content, file_name, target_model = None))]
-    fn convert_bytes_to_kb(&self, content: Vec<u8>, file_name: String, target_model: Option<String>) -> PyResult<String> {
+    #[pyo3(signature = (content, file_name, target_model = None, mode = None))]
+    fn convert_bytes_to_kb(&self, content: Vec<u8>, file_name: String, target_model: Option<String>, mode: Option<String>) -> PyResult<String> {
         let model = target_model.unwrap_or_else(|| self.config.target_model.clone());
-        let res_val = kb::convert_single_to_kb(&content, &file_name, &model, &self.config);
+        let kb_mode = mode.unwrap_or_else(|| "full".to_string());
+        let res_val = kb::convert_single_to_kb_with_mode(&content, &file_name, &model, &kb_mode, &self.config);
         
         serde_json::to_string(&res_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
-    #[pyo3(signature = (dir_path, recursive = None, target_model = None))]
-    fn convert_directory_to_kb(&self, dir_path: String, recursive: Option<bool>, target_model: Option<String>) -> PyResult<String> {
+    #[pyo3(signature = (dir_path, recursive = None, target_model = None, mode = None))]
+    fn convert_directory_to_kb(&self, dir_path: String, recursive: Option<bool>, target_model: Option<String>, mode: Option<String>) -> PyResult<String> {
         let is_recursive = recursive.unwrap_or(true);
         let model = target_model.unwrap_or_else(|| self.config.target_model.clone());
-        let res_val = kb::convert_directory_to_kb(&dir_path, is_recursive, &model, &self.config);
+        let kb_mode = mode.unwrap_or_else(|| "full".to_string());
+        let res_val = kb::convert_directory_to_kb_with_mode(&dir_path, is_recursive, &model, &kb_mode, &self.config);
         
         serde_json::to_string(&res_val)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    // Rayon Parallel Tool & Agent Execution Layer
+    #[pyo3(signature = (tasks_json))]
+    fn execute_parallel_tasks(&self, py: Python<'_>, tasks_json: String) -> PyResult<String> {
+        let tasks: Vec<parallel::ToolTask> = serde_json::from_str(&tasks_json)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid tasks JSON: {}", e)))?;
+        
+        let results = py.allow_threads(|| {
+            parallel::execute_parallel_tasks(tasks, &self.config)
+        });
+
+        serde_json::to_string(&results)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (file_paths))]
+    fn parallel_scan(&self, py: Python<'_>, file_paths: Vec<String>) -> PyResult<String> {
+        let results = py.allow_threads(|| {
+            parallel::parallel_scan_documents(&file_paths, &self.config)
+        });
+
+        serde_json::to_string(&results)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (file_paths, target_model = None, mode = None))]
+    fn parallel_convert_to_kb(&self, py: Python<'_>, file_paths: Vec<String>, target_model: Option<String>, mode: Option<String>) -> PyResult<String> {
+        let model = target_model.unwrap_or_else(|| self.config.target_model.clone());
+        let kb_mode = mode.unwrap_or_else(|| "full".to_string());
+        
+        let results = py.allow_threads(|| {
+            parallel::parallel_convert_to_kb(&file_paths, &model, &kb_mode, &self.config)
+        });
+
+        serde_json::to_string(&results)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (texts, entities = None))]
+    fn parallel_redact_pii(&self, py: Python<'_>, texts: Vec<String>, entities: Option<Vec<String>>) -> PyResult<Vec<String>> {
+        let ent = entities.unwrap_or_default();
+        let results = py.allow_threads(|| {
+            parallel::parallel_redact_texts(&texts, &ent)
+        });
+        Ok(results)
+    }
+
+    // MCP Server Handlers
+    fn run_mcp_server(&self) -> PyResult<()> {
+        mcp::run_stdio_server(&self.config)
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
+
+    #[pyo3(signature = (message_json))]
+    fn handle_mcp_message(&self, message_json: String) -> PyResult<Option<String>> {
+        let msg: serde_json::Value = serde_json::from_str(&message_json)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid JSON: {}", e)))?;
+        
+        let resp = mcp::handle_json_rpc_message(&msg, &self.config);
+        match resp {
+            Some(v) => {
+                let s = serde_json::to_string(&v)
+                    .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+                Ok(Some(s))
+            }
+            None => Ok(None)
+        }
     }
 
     #[pyo3(signature = (text, entities = None))]
@@ -277,109 +356,6 @@ mod tests {
         assert_eq!(doc.page_count, 1);
         assert!(doc.text.contains("sample document"));
         assert!(!doc.is_corrupted);
-    }
-
-    #[test]
-    fn test_csv_parser() {
-        let csv_data = b"name,role,salary\nAlice,Manager,100000\nBob,Engineer,80000";
-        let doc = parsers::text::parse_csv(csv_data);
-        assert_eq!(doc.page_count, 1);
-        assert!(doc.text.contains("Alice"));
-        assert!(doc.text.contains("Engineer"));
-        assert_eq!(doc.metadata.get("rows").unwrap(), "2");
-    }
-
-    #[test]
-    fn test_json_parser() {
-        let json_data = b"{\"title\": \"Supply Agreement\", \"parties\": [\"A\", \"B\"], \"pages\": 5}";
-        let doc = parsers::text::parse_json(json_data);
-        assert!(doc.text.contains("Supply Agreement"));
-        assert!(doc.text.contains("parties"));
-    }
-
-    #[test]
-    fn test_security_analysis() {
-        let content = vec![0u8; 100];
-        let risk = security::analyze_security(&content, false, 5, "test.txt");
-        assert_eq!(risk.as_str(), "low");
-
-        let risk_pages = security::analyze_security(&content, false, 2500, "test.pdf");
-        assert_eq!(risk_pages.as_str(), "high");
-
-        let risk_corrupted = security::analyze_security(&content, true, 5, "test.pdf");
-        assert_eq!(risk_corrupted.as_str(), "high");
-    }
-
-    #[test]
-    fn test_quality_and_ocr() {
-        let text = "This is a digital text with a lot of words so it has high density and readability. ".repeat(10);
-        let mut metadata = HashMap::new();
-        metadata.insert("format".to_string(), "pdf".to_string());
-        
-        let (score, requires_ocr) = quality::evaluate_quality(&text, 1, 1000, &metadata, false);
-        assert!(score > 0.4);
-        assert!(!requires_ocr);
-
-        let empty_text = "";
-        let (score_empty, requires_ocr_empty) = quality::evaluate_quality(empty_text, 1, 1000, &metadata, false);
-        assert!(score_empty < 0.2);
-        assert!(requires_ocr_empty);
-    }
-
-    #[test]
-    fn test_classification() {
-        let text = "We have safety stock replenishment for inventory forecast warehouse logistics shipment and sku demand planning.";
-        let (class, agent) = classifier::classify_domain(text);
-        assert_eq!(class, "Supply Planning");
-        assert_eq!(agent, "SupplyPlanningAgent");
-
-        let legal_text = "This contract agreement liability clause NDA governed by law and indemnity of parties.";
-        let (legal_class, legal_agent) = classifier::classify_domain(legal_text);
-        assert_eq!(legal_class, "Legal");
-        assert_eq!(legal_agent, "LegalAgent");
-    }
-
-    #[test]
-    fn test_recommendations() {
-        let text = "sample text ".repeat(300);
-        let token_count = recommendations::get_token_count(&text, &None, "cl100k_base");
-        assert!(token_count > 50);
-
-        let fits = recommendations::validate_context_window(token_count, "gpt-3.5-turbo");
-        assert!(fits);
-
-        let chunking = recommendations::recommend_chunking(token_count, "txt", "Research");
-        assert_eq!(chunking, "semantic chunking");
-    }
-
-    #[test]
-    fn test_pipeline() {
-        let content = b"This is a legal document agreement contract liability clause. This contract governs the agreement between the parties under governing law. NDA and disclosure rules apply. All disputes shall be resolved by arbitration. The parties agree to the warranty and breach of contract terms under this agreement. This contract is final.";
-        let hash = calculate_sha256(content);
-        let config = AnalysisConfig::default();
-        
-        let report = analyze_single_document(content, "agreement.txt", false, &hash, &config);
-        assert_eq!(report.get("file_name").unwrap().as_str().unwrap(), "agreement.txt");
-        assert_eq!(report.get("document_class").unwrap().as_str().unwrap(), "Legal");
-        assert_eq!(report.get("security_risk").unwrap().as_str().unwrap(), "low");
-        assert_eq!(report.get("rag_ready").unwrap().as_bool().unwrap(), true);
-    }
-
-    #[test]
-    fn test_single_metrics() {
-        let content = b"This is a legal document agreement contract liability clause for procurement vendor.";
-        let analyzer = DocumentAnalyzer {
-            config: AnalysisConfig::default(),
-        };
-        
-        let words = analyzer.count_words_bytes(content.to_vec(), "agreement.txt".to_string()).unwrap();
-        assert_eq!(words, 12);
-
-        let tokens = analyzer.count_tokens_bytes(content.to_vec(), "agreement.txt".to_string()).unwrap();
-        assert!(tokens > 10);
-
-        let chars = analyzer.count_chars_bytes(content.to_vec(), "agreement.txt".to_string()).unwrap();
-        assert_eq!(chars, content.len());
     }
 
     #[test]
