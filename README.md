@@ -103,6 +103,28 @@ dir_report = json.loads(dir_report_str)
 print(f"Total directory tokens: {dir_report['summary']['total_tokens']}")
 ```
 
+#### 🤖 Universal Agent Framework Integrations (v0.3.2)
+Seamlessly export and use DocArmor's Rust-native security, KB, and redaction tools across all major agent frameworks:
+```python
+import docarmor
+
+# LangChain / LangGraph (native StructuredTool instances)
+lc_tools = docarmor.to_langchain_tools()
+
+# CrewAI (native BaseTool instances)
+crew_tools = docarmor.to_crewai_tools()
+
+# Microsoft AutoGen (automatic registration with ConversableAgent / AssistantAgent)
+docarmor.register_with_autogen(caller=assistant_agent, executor=user_proxy)
+
+# LlamaIndex (native FunctionTool instances)
+llama_tools = docarmor.to_llamaindex_tools()
+
+# Direct OpenAI Function Calling & Anthropic Tool Use Schemas
+openai_tools = docarmor.to_openai_tools()
+anthropic_tools = docarmor.to_anthropic_tools()
+```
+
 #### ⚡ True Parallel Agent Tool Execution (Zero GIL)
 Execute dozens or hundreds of heterogeneous tool calls concurrently in native Rust with work-stealing parallelism, bypassing Python's GIL:
 ```python
